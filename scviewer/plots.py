@@ -10,12 +10,10 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import plotly.io as pio
 from plotly.subplots import make_subplots
 
 from . import io_utils as io
 
-pio.templates["plotly_white"].layout.font.family = "Arial"
 
 _CONTINUOUS = "Viridis"
 _POINT = dict(size=3, opacity=0.75)
@@ -112,19 +110,34 @@ def multi_gene_grid(adata, embedding: str, genes: list[str], layer: str = "logno
 
 
 def violin(adata, genes: list[str], group_field: str, layer: str = "lognorm",
-           kind: str = "violin"):
-    """Violin (or box) of gene expression grouped by a metadata field."""
+           kind: str = "violin", max_cells_per_group: int = 10_000):
+    """Violin (or box) of gene expression grouped by a metadata field.
+
+    Caps each group at max_cells_per_group cells so large datasets don't OOM
+    when building the long-format DataFrame.
+    """
     genes = [g for g in genes if g in adata.var_names]
     if not genes:
         return go.Figure()
-    groups = adata.obs[group_field].astype(str).values
+    groups = np.asarray(adata.obs[group_field].astype(str).values)
     cmap = io.category_colors(adata, group_field)
     order = sorted(pd.unique(groups))
 
+    # Build a per-group subsample index to cap memory usage.
+    rng = np.random.default_rng(0)
+    keep_idx: list[np.ndarray] = []
+    for grp in order:
+        idx = np.where(groups == grp)[0]
+        if len(idx) > max_cells_per_group:
+            idx = rng.choice(idx, max_cells_per_group, replace=False)
+        keep_idx.append(idx)
+    sel = np.sort(np.concatenate(keep_idx))
+    sel_groups = groups[sel]
+
     frames = []
     for g in genes:
-        frames.append(pd.DataFrame({"expr": io.gene_vector(adata, g, layer),
-                                    "group": groups, "gene": g}))
+        vec = io.gene_vector(adata, g, layer)[sel]
+        frames.append(pd.DataFrame({"expr": vec, "group": sel_groups, "gene": g}))
     long = pd.concat(frames, ignore_index=True)
 
     if len(genes) == 1:
@@ -147,18 +160,22 @@ def violin(adata, genes: list[str], group_field: str, layer: str = "lognorm",
 
 
 def dotplot(adata, genes: list[str], group_field: str, layer: str = "lognorm"):
-    """Dotplot: mean expression (color) and fraction expressing (size) per group."""
+    """Dotplot: mean expression (color) and fraction expressing (size) per group.
+
+    Stats are computed gene-by-gene so only one gene vector is in memory at a time.
+    """
     genes = [g for g in genes if g in adata.var_names]
     if not genes:
         return go.Figure()
-    groups = adata.obs[group_field].astype(str).values
+    groups = np.asarray(adata.obs[group_field].astype(str).values)
     order = sorted(pd.unique(groups))
+    # Pre-compute group masks once (boolean arrays are cheap).
+    group_masks = {grp: groups == grp for grp in order}
     rows = []
     for g in genes:
-        v = io.gene_vector(adata, g, layer)
+        v = io.gene_vector(adata, g, layer)  # one gene at a time
         for grp in order:
-            m = groups == grp
-            sub = v[m]
+            sub = v[group_masks[grp]]
             rows.append({"gene": g, "group": grp,
                          "mean_expr": float(sub.mean()) if sub.size else 0.0,
                          "frac": float((sub > 0).mean()) if sub.size else 0.0})

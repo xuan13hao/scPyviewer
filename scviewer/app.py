@@ -106,7 +106,11 @@ mask = apply_filters(adata, filters)
 n_sel = int(mask.sum())
 if n_sel < adata.n_obs:
     st.sidebar.info(f"Filter active: {n_sel:,} / {adata.n_obs:,} cells")
-view = adata[mask].copy() if n_sel < adata.n_obs else adata
+# No .copy() — keeps the expression matrix on disk for backed datasets.
+view = adata[mask] if n_sel < adata.n_obs else adata
+
+# For datasets with many cells, subsample scatter plots for responsiveness.
+MAX_SCATTER = int(os.environ.get("SCVIEWER_MAX_SCATTER", 200_000))
 
 
 # --------------------------------------------------------------------- tabs
@@ -124,7 +128,7 @@ with tab_emb:
         field = c3.selectbox("Field", cat_fields + num_fields,
                              index=(cat_fields + num_fields).index(group_key)
                              if group_key in (cat_fields + num_fields) else 0)
-        fig = plots.embedding_scatter(view, emb, color_field=field)
+        fig = plots.embedding_scatter(view, emb, color_field=field, max_points=MAX_SCATTER)
     else:
         gene = c3.selectbox("Gene", io.gene_search(view, ""), key="emb_gene")
         gq = st.text_input("Search gene", "", key="emb_gene_search")
@@ -132,7 +136,7 @@ with tab_emb:
             hits = io.gene_search(view, gq)
             if hits:
                 gene = st.selectbox("Matches", hits, key="emb_gene_hit")
-        fig = plots.embedding_scatter(view, emb, gene=gene)
+        fig = plots.embedding_scatter(view, emb, gene=gene, max_points=MAX_SCATTER)
     st.plotly_chart(fig, width='stretch')
 
 # ============================================================ 2. EXPRESSION
@@ -154,7 +158,8 @@ with tab_expr:
             emb2 = st.selectbox("Overlay embedding", embeddings,
                                 index=embeddings.index("X_umap") if "X_umap" in embeddings else 0,
                                 key="expr_emb")
-            st.plotly_chart(plots.multi_gene_grid(view, emb2, genes, ncol=2),
+            st.plotly_chart(plots.multi_gene_grid(view, emb2, genes, ncol=2,
+                                                   max_points=MAX_SCATTER),
                             width='stretch')
         with colB:
             gfield = st.selectbox("Group by", cat_fields,
@@ -191,7 +196,8 @@ with tab_markers:
                             index=embeddings.index("X_umap") if "X_umap" in embeddings else 0,
                             key="mk_emb")
         if pick:
-            st.plotly_chart(plots.embedding_scatter(view, emb3, gene=pick),
+            st.plotly_chart(plots.embedding_scatter(view, emb3, gene=pick,
+                                                    max_points=MAX_SCATTER),
                             width='stretch')
         st.download_button("⬇ Download this DE table (CSV)",
                            sub.to_csv(index=False).encode(),

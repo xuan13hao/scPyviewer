@@ -23,9 +23,6 @@ import sys
 import time
 import tracemalloc
 
-import matplotlib
-matplotlib.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Arial"]})
-
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

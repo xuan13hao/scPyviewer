@@ -1,24 +1,69 @@
-# scviewer — a Python-native interactive viewer for single-cell data
+# scviewer — Python-native interactive viewer for single-cell data
 
-`scviewer` is a lightweight, browser-based explorer for analyzed single-cell
-datasets. It ingests an **AnnData** (`.h5ad`) object directly — no Seurat
-conversion, no notebook — and lets a non-programmer explore embeddings, gene
-expression, metadata, and marker/DE tables, then share the result with a single
-command.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Streamlit](https://img.shields.io/badge/built%20with-Streamlit-FF4B4B.svg)](https://streamlit.io)
 
-Every actively maintained tool in this space (ShinyCell, ScRDAVis,
-sCIRCLE/scViewer) is built on R Shiny and requires a Seurat object. `scviewer`
-fills the Python/scanpy gap: it stays entirely inside the Python stack that most
-single-cell analysis already runs in.
+**scviewer** is a lightweight, browser-based explorer for analyzed single-cell datasets. It ingests an **AnnData** (`.h5ad`) object directly — no Seurat conversion, no notebook — and lets a non-programmer explore embeddings, gene expression, metadata, and marker/DE tables, then share the result with a single command.
+
+Every actively maintained tool in this space (ShinyCell, ScRDAVis, sCIRCLE/scViewer) is built on R Shiny and requires a Seurat object. **scviewer fills the Python/scanpy gap**: it stays entirely inside the Python stack that most single-cell analysis already runs in.
 
 ---
 
-## Quick start (one command per step)
+## Highlights
+
+| | scviewer | ShinyCell | ScRDAVis | sCIRCLE/scViewer |
+|---|:---:|:---:|:---:|:---:|
+| Embedding plot (UMAP/PCA/t-SNE) | ✓ | ✓ | ✓ | ✓ |
+| Single/multi-gene expression overlay | ✓ | ✓ | ✓ | Partial |
+| Violin/box plot grouped by metadata | ✓ | ✓ | ✓ | Partial |
+| Marker gene / DE table browsing | ✓ | Partial | ✓ | ✗ |
+| **Cross-dataset / cross-species comparison** | **✓** | ✗ | ✗ | ✗ |
+| No-code shareable deployment | ✓ | ✓ | ✓ | ✓ |
+| **Native Python/AnnData input (no Seurat conversion)** | **✓** | ✗ | ✗ | ✗ |
+
+**Performance on the chicken-heart atlas (22,315 cells × 10,031 genes):**
+
+- All six core views render in **< 0.25 s** (best-of-three), peak memory **661 MB**
+- **2.1× faster** total render than the R/Seurat substrate (1.4 s vs. 3.0 s)
+- **0.6× peak memory** vs. Seurat (661 MB vs. 1,076 MB)
+- **5.6× faster load** from `.h5ad` than from Seurat `.rds` (0.6 s vs. 3.5 s)
+- Scales to **313K cells / 6 GB** on disk via automatic backed mode (≤ 6 GB RAM)
+
+---
+
+## Install
 
 ```bash
-./run.sh setup       # install pinned dependencies (Python 3.11)
-./run.sh prepare     # raw .h5ad -> viewer-ready .prepared.h5ad
+# pip (editable, from the project root)
+pip install -e '.[all]'
+
+# conda
+conda env create -f environment.yml
+conda activate scviewer
+pip install -e .
+```
+
+This registers two console scripts — **`scviewer`** (launch the viewer) and **`scviewer-prepare`** (raw `.h5ad` → viewer-ready object) — and makes `import scviewer` available.
+
+Optional dependency groups: `app` (Streamlit), `prepare` (leiden clustering), `excel` (`.xlsx` export), `all` (everything).
+
+---
+
+## Quick start
+
+```bash
+./run.sh install     # pip install -e .[all]
 ./run.sh app         # launch the viewer at http://localhost:8501
+                     # (data/toy_example.prepared.h5ad is included for immediate use)
+```
+
+A ready-to-use toy dataset (`data/toy_example.prepared.h5ad`, 500 cells × 200 genes, 5 immune cell types) is included so you can explore the viewer without downloading any data.
+
+To prepare your own raw `.h5ad`:
+
+```bash
+./run.sh prepare data/your_dataset.h5ad
 ```
 
 Everything is driven through **`run.sh`**, the single reproduction interface:
@@ -26,64 +71,30 @@ Everything is driven through **`run.sh`**, the single reproduction interface:
 | Command | What it does |
 |---|---|
 | `./run.sh setup` | `pip install -r requirements.txt` |
-| `./run.sh prepare [RAW.h5ad]` | preprocess raw counts → `*.prepared.h5ad` (lognorm, HVG, PCA, t-SNE, per-group DE) |
+| `./run.sh install` | `pip install -e .[all]` — package + console scripts + API |
+| `./run.sh prepare [RAW.h5ad]` | preprocess raw counts → `*.prepared.h5ad` (lognorm, HVG, PCA, UMAP, t-SNE, per-group DE) |
 | `./run.sh app` | launch the Streamlit viewer |
-| `./run.sh benchmark` | run the feature-parity + performance harness, write `results/benchmark_results.json`, render benchmark figures |
+| `./run.sh benchmark` | feature-parity + performance harness → `results/benchmark_results.json` + figures |
+| `./run.sh bench-r` | R/Seurat cross-language benchmark (needs R + Seurat) → comparison figures |
+| `./run.sh api-demo` | exercise the programmatic API → `results/api_demo/` |
 | `./run.sh figures` | regenerate all demonstration + paper figures |
 | `./run.sh all` | `prepare → benchmark → figures` |
 | `./run.sh help` | usage |
 
 ### Environment overrides
 
-`run.sh` reads four optional environment variables:
-
 | Variable | Default | Meaning |
 |---|---|---|
-| `PY` | `python` | Python interpreter to use |
+| `PY` | `python` | Python interpreter |
+| `RSCRIPT` | `Rscript` | R interpreter for `bench-r` |
 | `DATA_DIR` | `data` | directory scanned for `.h5ad` files |
 | `RAW` | `$DATA_DIR/chicken_heart.h5ad` | raw input for `prepare`/`all` |
 | `PORT` | `8501` | Streamlit port |
 
-Example — prepare and serve a different dataset on another port:
-
 ```bash
-RAW=data/my_data.h5ad ./run.sh prepare
+RAW=data/my_dataset.h5ad ./run.sh prepare
 PORT=9000 ./run.sh app
 ```
-
----
-
-## Full reproduction from scratch
-
-```bash
-./run.sh setup                       # 1. dependencies
-./run.sh all                         # 2. prepare + benchmark + figures
-./run.sh app                         # 3. explore interactively
-```
-
-`run.sh all` regenerates every artifact behind the paper:
-`results/benchmark_results.json` and all figures under `results/figures/`.
-
----
-
-## What `prepare` does
-
-`prepare.py` is **dataset-agnostic and idempotent** — it guards every step, so
-running it on an already-analyzed object only fills in what is missing:
-
-1. Store raw counts in `layers['counts']`; build a log-normalized matrix in
-   `layers['lognorm']` and set it as `X` (skipped if `X` already looks
-   log-normalized).
-2. Highly-variable genes → PCA (skipped if `X_pca` present).
-3. UMAP and t-SNE embeddings (any embedding already present, e.g. `X_umap` or a
-   precomputed `X_uce`, is preserved; UMAP is skipped when already there).
-4. Per-group differential expression (Wilcoxon) over the auto-selected grouping
-   column, written to `uns['rank_genes_groups']` and a tidy
-   `uns['scviewer_markers']` table.
-5. A `uns['scviewer']` metadata block + a sidecar `*.manifest.json`.
-
-Pass `--no-tsne` to skip the (slower) t-SNE step; pass `-g COLUMN` to force the
-DE grouping column.
 
 ---
 
@@ -91,47 +102,171 @@ DE grouping column.
 
 The Streamlit app (`scviewer/app.py`) has five tabs:
 
-- **Embedding** — any 2-D embedding, colored by metadata or gene expression.
-- **Expression** — single/multi-gene overlays, violin, and dot plots grouped by
-  any metadata column.
-- **Markers / DE** — browse the per-group differential-expression table.
-- **Compare** — cross-dataset / cross-species side-by-side comparison.
-- **Export** — download the current view and filtered cell tables.
+- **Embedding** — any 2-D embedding colored by metadata or gene expression
+- **Expression** — single/multi-gene overlays, violin, and dot plots grouped by any metadata column
+- **Markers / DE** — interactive browsing of the per-group differential-expression table
+- **Compare** — cross-dataset / cross-species side-by-side comparison (not available in any R Shiny incumbent)
+- **Export** — download the current view and filtered cell tables
 
-A sidebar picks the dataset (any `*.prepared.h5ad` in `DATA_DIR`) and applies
-metadata filters shared across all tabs.
+A sidebar picks the dataset (any `*.prepared.h5ad` in `DATA_DIR`) and applies metadata filters shared across all tabs.
+
+### Demonstration figures (chicken-heart developmental atlas, 22,315 cells)
+
+UMAP colored by 15 annotated cell types, multi-gene expression grid (MYL2, HBA1, IFI6, FN1, MDK, POSTN), violin plot grouped by sample, and cell-type composition bar.
 
 ---
 
-## Layout
+## Programmatic API
+
+The same data and plotting layers that back the app are exposed as a public Python API:
+
+```python
+import scviewer as sv
+
+# toy example (included in data/)
+ds = sv.load_dataset("data/toy_example.prepared.h5ad")
+print(ds.n_obs, ds.n_vars, ds.group_key)      # 500  200  cell_type
+
+# figures -> matplotlib.figure.Figure
+fig = sv.plot_embedding(ds, color=ds.group_key)      # color by metadata
+fig = sv.plot_embedding(ds, gene="CD3D")             # color by gene
+fig = sv.plot_multigene(ds, genes=["CD3D", "CD19", "CD14"])
+fig = sv.plot_violin(ds, gene="CD3D", group=ds.group_key)
+fig = sv.plot_dotplot(ds, genes=["CD3D", "CD19", "CD14"], group=ds.group_key)
+fig = sv.plot_composition(ds, group=ds.group_key, split="sample")
+
+# tables -> pandas.DataFrame
+mk   = sv.markers_table(ds, top_n=25)
+comp = sv.composition_table(ds, group=ds.group_key, split="sample")
+meta = sv.metadata_table(ds)
+
+# batch export
+sv.export_figures(ds, "out/figs",   formats=["png", "pdf", "svg"])
+sv.export_tables(ds,  "out/tables", formats=["csv", "tsv", "xlsx"])
+```
+
+Every `plot_*` function returns a Matplotlib `Figure`; every `*_table` function returns a pandas `DataFrame`. The API renders through Matplotlib (not Plotly) so static export is dependency-light and needs no headless browser.
+
+Run `./run.sh api-demo` for a worked end-to-end example → `results/api_demo/`.
+
+---
+
+## What `prepare` does
+
+`prepare.py` is **dataset-agnostic and idempotent** — it guards every step and only fills in what is missing:
+
+1. Log-normalize `X` (skipped if already log-normalized)
+2. Highly-variable gene selection → PCA (skipped if `X_pca` or an alternative embedding exists)
+3. UMAP + optional t-SNE (pre-existing embeddings are preserved)
+4. Per-group differential expression (Wilcoxon) over the auto-selected grouping column → `uns['rank_genes_groups']` + tidy `uns['scviewer_markers']`
+5. CSR → CSC conversion for fast backed column access
+6. `uns['scviewer']` provenance block + sidecar `*.manifest.json`
+
+| Flag | Effect |
+|---|---|
+| `--no-tsne` | skip t-SNE (recommended for > 50 K cells) |
+| `--no-csc` | skip CSC conversion (saves RAM; column access slower) |
+| `--backed-only` | force disk-streaming mode for very large files |
+| `-g COLUMN` | force the DE grouping column |
+
+---
+
+## Large-dataset support (> 5 GB files)
+
+### Viewer — backed mode (automatic)
+
+Files larger than 500 MB are opened with `backed='r'` so the expression matrix `X` stays on disk and is read column-by-column on demand. Only embeddings, metadata, and graphs enter RAM. Typical viewer peak memory on a 6 GB dataset is **< 500 MB**.
+
+```bash
+SCVIEWER_BACKED_BYTES=1000000000 ./run.sh app   # back files > 1 GB
+```
+
+### Prepare — backed-only mode (auto or explicit)
+
+If the file is larger than 0.66× available RAM, `prepare.py` automatically switches to backed-only mode:
+
+- Opens the file with `backed='r'` — `X` never enters RAM
+- Computes UMAP from any pre-existing embedding (`X_uce`, `X_scvi`, …)
+- Streams `X` directly from the source file on write
+- Peak RAM: **≈ 2–6 GB** regardless of file size
+
+In backed-only mode DE markers are skipped (they require `X` in RAM).
+
+
+## Full reproduction from scratch
+
+```bash
+./run.sh install                     # 1. install package + deps
+./run.sh all                         # 2. prepare + benchmark + figures
+./run.sh bench-r                     # 3. R/Seurat cross-language benchmark (needs R + Seurat)
+./run.sh app                         # 4. explore interactively
+```
+
+`run.sh all` regenerates `results/benchmark_results.json` and all figures under `results/figures/`. `run.sh bench-r` additionally produces `results/benchmark_comparison.csv` and the comparison figures.
+
+---
+
+## Project layout
 
 ```
-run.sh                       single reproduction interface
-requirements.txt             pinned dependencies (Python 3.11)
+run.sh                        single reproduction interface
+pyproject.toml                package metadata + console scripts + deps
+environment.yml               conda environment
+requirements.txt              pinned dependencies (Python 3.11)
+build_seurat.R                AnnData export -> native Seurat .rds (timed)
+bench_r.R                     R/Seurat cross-language render benchmark
 scviewer/
-  prepare.py                 raw .h5ad -> viewer-ready .prepared.h5ad
-  app.py                     Streamlit viewer (5 tabs)
-  io_utils.py                AnnData loading / metadata / gene access
-  plots.py                   pure Plotly plotting functions
-  benchmark.py               feature-parity + performance + time-to-share
-  make_figures.py            demonstration + paper figures
-data/                        .h5ad inputs and *.prepared.h5ad outputs
+  __init__.py                 re-exports the public API (import scviewer as sv)
+  api.py                      public API: plot_*/*_table/export_* (matplotlib)
+  api_demo.py                 worked API example (run.sh api-demo)
+  _launch.py                  `scviewer` console-script launcher
+  prepare.py                  raw .h5ad -> viewer-ready .prepared.h5ad
+  app.py                      Streamlit viewer (5 tabs)
+  io_utils.py                 AnnData loading / metadata / gene access
+  plots.py                    pure Plotly plotting functions (app)
+  benchmark.py                feature-parity + performance + time-to-share
+  merge_bench.py              merge Python + R benchmarks, render comparison figs
+  make_figures.py             demonstration + paper figures
+data/                         .h5ad inputs, *.prepared.h5ad
 results/
-  benchmark_results.json     benchmark output
-  figures/                   paper + demonstration figures
-paper/                       manuscript
+  benchmark_results.json        Python benchmark output
+  benchmark_r.json              R/Seurat benchmark output
+  benchmark_comparison.csv      per-operation Python-vs-R table
+  benchmark_multi_dataset.csv   multi-dataset scalability table
+  api_demo/                     example API figures + tables
+  figures/                      paper + demonstration figures
+  figures_green_monkey/         benchmark figures — green monkey (78K cells)
+  figures_human_lung/           benchmark figures — human lung disease (313K cells, 6 GB)
+paper/                        manuscript
 ```
 
 ---
 
-## Notes on reproducibility
+## Reproducibility notes
 
-- Dependencies are pinned in `requirements.txt` to the versions used for the
-  paper's benchmarks (scanpy 1.11.5, anndata 0.12.19, streamlit 1.59.2,
-  plotly 6.9.0, Python 3.11).
-- Benchmark timings are machine-dependent; the absolute numbers in the paper
-  were measured on the development host (16 CPU, 8 GiB RAM, no GPU) and will
-  vary. Re-run `./run.sh benchmark` to obtain numbers for your own hardware.
-- The tool is built to be dataset- and species-agnostic. The distributed
-  benchmark is run on one attached dataset (`chicken_heart.h5ad`); the study design names additional datasets that
-  were not attached to this build.
+- Dependencies are pinned in `requirements.txt` to the versions used for the paper's benchmarks (scanpy 1.11.5, anndata 0.12.19, streamlit 1.59.2, plotly 6.9.0, Python 3.11).
+- Benchmark timings are machine-dependent. Re-run `./run.sh benchmark` to obtain numbers for your own hardware.
+- The cross-language comparison (`./run.sh bench-r`) needs R with Seurat installed (measured with R 4.5.3, Seurat 5.5.1).
+- The tool is built to be dataset- and species-agnostic. Prepare your own `.h5ad` with `./run.sh prepare data/your_dataset.h5ad`.
+
+---
+
+<!-- ## Citation
+
+If you use scviewer in your research, please cite:
+
+```bibtex
+@article{scviewer2025,
+  title   = {scviewer: a Python-native interactive viewer for single-cell data},
+  author  = {...},
+  journal = {...},
+  year    = {2025},
+  doi     = {...}
+}
+```
+
+--- -->
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.

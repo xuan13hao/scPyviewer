@@ -39,8 +39,29 @@ def discover_datasets(data_dir: str) -> dict[str, str]:
 
 
 # ------------------------------------------------------------------ loading
+_BACKED_THRESHOLD = int(os.environ.get("SCVIEWER_BACKED_BYTES", 500_000_000))  # 500 MB
+
+
 def load_adata(path: str):
-    """Load an AnnData from disk. (Caching is applied at the app layer.)"""
+    """Load an AnnData from disk.
+
+    Files larger than SCVIEWER_BACKED_BYTES (default 500 MB) are opened in
+    backed='r' mode so the expression matrix stays on disk and is read
+    column-by-column on demand.  Falls back to a full in-memory load if the
+    backed open fails (e.g. the file has uns entries with null encodings from
+    older scanpy versions — re-running prepare.py on the file fixes this).
+    """
+    if os.path.getsize(path) > _BACKED_THRESHOLD:
+        try:
+            return sc.read_h5ad(path, backed="r")
+        except Exception:
+            import warnings
+            warnings.warn(
+                f"{os.path.basename(path)}: backed='r' failed; falling back to "
+                "full in-memory load. Re-run prepare.py on the file to fix "
+                "compatibility and enable low-memory backed access.",
+                stacklevel=2,
+            )
     return sc.read_h5ad(path)
 
 
@@ -64,8 +85,12 @@ def get_meta(adata) -> dict[str, Any]:
         s = adata.obs[c]
         if s.dtype.name in ("category", "object", "bool") and s.nunique() <= 200:
             cats.append(c)
-        elif np.issubdtype(s.dtype, np.number):
-            nums.append(c)
+        elif s.dtype.name not in ("category", "object", "bool"):
+            try:
+                if np.issubdtype(s.dtype, np.number):
+                    nums.append(c)
+            except TypeError:
+                pass
     gk = next((c for c in ["cell_type", "celltype", "leiden", "louvain", "cluster"]
                if c in adata.obs.columns), (cats[0] if cats else None))
     return {"embeddings": sorted(k for k in adata.obsm if k.startswith("X_")),
@@ -81,13 +106,48 @@ def embedding_2d(adata, key: str) -> np.ndarray:
 
 
 def gene_vector(adata, gene: str, layer: str = "lognorm") -> np.ndarray:
-    """Return the expression vector for a single gene as a 1-D dense array."""
+    """Return the expression vector for a single gene as a 1-D dense float32 array.
+
+    Works with in-memory, sparse, and h5py-backed AnnData objects (including
+    backed views).  For backed datasets the expression matrix is read column-
+    by-column from disk so only ~n_cells * 4 bytes enter RAM at a time.
+    """
     if gene not in adata.var_names:
         raise KeyError(gene)
-    idx = adata.var_names.get_loc(gene)
-    mat = adata.layers[layer] if layer in adata.layers else adata.X
-    col = mat[:, idx]
-    col = col.toarray().ravel() if sp.issparse(col) else np.asarray(col).ravel()
+    gene_idx = adata.var_names.get_loc(gene)
+
+    if getattr(adata, "isbacked", False):
+        # Backed mode: always use X (layers are fully loaded into RAM in
+        # anndata 0.11.x backed mode, so we skip them).
+        # For backed *views*, anndata 0.11.x re-implements the obs selection
+        # as a 2-D fancy index that reads the entire row slice before
+        # filtering — that blows the memory budget. Instead we read the parent
+        # X column (one disk seek for CSC format) and apply the obs index
+        # ourselves as a cheap in-memory boolean/integer fancy index.
+        if adata.is_view:
+            ref = adata._adata_ref
+            raw = ref.X[:, gene_idx]
+            col = raw.toarray().ravel() if sp.issparse(raw) else np.asarray(raw).ravel()
+            oidx = adata._oidx  # bool or int array stored by the view
+            if hasattr(oidx, "dtype") and oidx.dtype == bool:
+                col = col[oidx]
+            else:
+                col = col[np.asarray(oidx)]
+        else:
+            raw = adata.X[:, gene_idx]
+            col = raw.toarray().ravel() if sp.issparse(raw) else np.asarray(raw).ravel()
+    else:
+        mat = adata.layers[layer] if layer in adata.layers else adata.X
+        raw = mat[:, gene_idx]
+        col = raw.toarray().ravel() if sp.issparse(raw) else np.asarray(raw).ravel()
+
+    col = col.astype(np.float32, copy=False)
+
+    # Backed-only prepare mode stores raw counts in X.  Apply log1p here so that
+    # gene-expression colouring and violin plots use a log scale automatically.
+    if adata.uns.get("scviewer", {}).get("x_is_raw"):
+        col = np.log1p(col)
+
     return col
 
 

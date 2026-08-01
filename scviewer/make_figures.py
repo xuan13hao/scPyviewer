@@ -36,10 +36,10 @@ from scviewer import io_utils as io  # noqa: E402
 # --------------------------------------------------------------- style
 def _style():
     mpl.rcParams.update({
-        "figure.dpi": 110, "savefig.dpi": 300, "savefig.bbox": "tight",
-        "font.family": "sans-serif", "font.sans-serif": ["Arial"],
-        "font.size": 12, "axes.titlesize": 12, "axes.labelsize": 12,
-        "xtick.labelsize": 12, "ytick.labelsize": 12, "legend.fontsize": 6.5,
+        "figure.dpi": 110, "savefig.dpi": 200, "savefig.bbox": "tight",
+        "font.family": "sans-serif", "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
+        "font.size": 8, "axes.titlesize": 8.5, "axes.labelsize": 8,
+        "xtick.labelsize": 6.8, "ytick.labelsize": 6.8, "legend.fontsize": 6.5,
         "axes.spines.top": False, "axes.spines.right": False,
         "figure.facecolor": "white", "axes.titlelocation": "left",
     })
@@ -58,7 +58,7 @@ def fig_feature_parity(bench: dict, out: str):
             val = ("Yes" if c["scviewer"] else "No") if t == "scviewer" else c[t]
             M[i, j] = lvl(val); labs[i, j] = val
     cmap = ListedColormap(["#f0f0f0", "#fdc086", "#4d9221"])
-    fig, ax = plt.subplots(figsize=(10, 4.6))
+    fig, ax = plt.subplots(figsize=(8.2, 4.6))
     ax.imshow(M, cmap=cmap, aspect="auto", vmin=0, vmax=2)
     ax.set_xticks(range(len(tools))); ax.set_xticklabels(tools)
     ax.set_yticks(range(len(cl))); ax.set_yticklabels(feat)
@@ -121,20 +121,20 @@ def fig_umap_celltypes(adata, out: str, group_key: str):
                    color=cmap.get(c, None), label=c, linewidths=0, rasterized=True)
         # leader-label at centroid
         cx, cy = xy[m, 0].mean(), xy[m, 1].mean()
-        ax.text(cx, cy, c, fontsize=5.6, ha="center", va="center",
+        ax.text(cx, cy, c, fontsize=8, ha="center", va="center",
                 bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none", alpha=0.68))
     ax.set_xticks([]); ax.set_yticks([])
     ax.annotate("", xy=(0.14, -0.02), xytext=(0.02, -0.02), xycoords="axes fraction",
                 arrowprops=dict(arrowstyle="->", lw=0.9))
     ax.annotate("", xy=(0.02, 0.14), xytext=(0.02, -0.02), xycoords="axes fraction",
                 arrowprops=dict(arrowstyle="->", lw=0.9))
-    ax.text(0.075, -0.055, "UMAP", transform=ax.transAxes, fontsize=6.5, ha="center")
+    ax.text(0.075, -0.055, "UMAP", transform=ax.transAxes, fontsize=8, ha="center")
     # ax.set_title(f"Chicken heart development: {len(cats)} annotated cell types "
     #              f"({adata.n_obs:,} cells)")
     for s in ["top", "right", "left", "bottom"]:
         ax.spines[s].set_visible(False)
     fig.tight_layout()
-    p = os.path.join(out, "fig_umap_celltypes.png"); fig.savefig(p, dpi=300); plt.close(fig)
+    p = os.path.join(out, "fig_umap_celltypes.png"); fig.savefig(p, dpi=200); plt.close(fig)
     return p
 
 
@@ -158,7 +158,7 @@ def fig_multigene(adata, out: str, genes: list[str]):
         axes[j].set_visible(False)
     # fig.suptitle("Cell-type marker expression on the UMAP embedding", x=0.02, ha="left", fontsize=9)
     fig.tight_layout(rect=[0, 0, 1, 0.97])
-    p = os.path.join(out, "fig_multigene_grid.png"); fig.savefig(p, dpi=300); plt.close(fig)
+    p = os.path.join(out, "fig_multigene_grid.png"); fig.savefig(p, dpi=200); plt.close(fig)
     return p
 
 
@@ -179,7 +179,7 @@ def fig_violin_by_sample(adata, out: str, gene: str, sample_field: str):
     # ax.set_title(f"{gene} expression across developmental samples", fontsize=8.5)
     ax.set_xlabel("")
     fig.tight_layout()
-    p = os.path.join(out, "fig_violin_by_sample.png"); fig.savefig(p, dpi=300); plt.close(fig)
+    p = os.path.join(out, "fig_violin_by_sample.png"); fig.savefig(p, dpi=200); plt.close(fig)
     return p
 
 
@@ -201,7 +201,7 @@ def fig_de_snapshot(adata, out: str, group_key: str, n_top: int = 8, n_groups: i
     # ax.set_title(f"Top Wilcoxon marker genes per cell type (groupby = {group_key})",
     #              fontsize=8.5, loc="left")
     fig.tight_layout()
-    p = os.path.join(out, "fig_de_snapshot.png"); fig.savefig(p, dpi=300); plt.close(fig)
+    p = os.path.join(out, "fig_de_snapshot.png"); fig.savefig(p, dpi=200); plt.close(fig)
     return p
 
 
@@ -225,7 +225,7 @@ def fig_composition(adata, out: str, group_key: str, split_field: str):
     # ax.set_title(f"Cell-type composition across developmental samples", fontsize=8.5)
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), frameon=False, fontsize=5.8)
     fig.tight_layout()
-    p = os.path.join(out, "fig_composition.png"); fig.savefig(p, dpi=300); plt.close(fig)
+    p = os.path.join(out, "fig_composition.png"); fig.savefig(p, dpi=200); plt.close(fig)
     return p
 
 

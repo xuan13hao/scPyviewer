@@ -3,14 +3,18 @@
 # run.sh — single reproduction interface for scviewer
 #
 #   ./run.sh setup                 install Python dependencies
+#   ./run.sh install               pip install -e . (adds `scviewer` commands + API)
 #   ./run.sh prepare [RAW.h5ad]    raw .h5ad -> viewer-ready .prepared.h5ad
 #   ./run.sh app                   launch the Streamlit viewer
-#   ./run.sh benchmark             run the benchmark harness + figures
+#   ./run.sh benchmark             run the Python benchmark harness + figures
+#   ./run.sh bench-r               run the R/Seurat cross-language benchmark
+#   ./run.sh api-demo              exercise the programmatic API -> figures + tables
 #   ./run.sh figures               regenerate the demonstration/paper figures
 #   ./run.sh all                   prepare -> benchmark -> figures
 #
 # Environment overrides:
 #   PY        python interpreter        (default: python)
+#   RSCRIPT   Rscript interpreter       (default: Rscript)
 #   DATA_DIR  directory of .h5ad files  (default: data)
 #   RAW       raw input for prepare/all (default: $DATA_DIR/chicken_heart.h5ad)
 #   PORT      streamlit port            (default: 8501)
@@ -18,7 +22,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PY="${PY:-python3}"
+PY="${PY:-python}"
+RSCRIPT="${RSCRIPT:-Rscript}"
 DATA_DIR="${DATA_DIR:-data}"
 RAW="${RAW:-$DATA_DIR/chicken_heart.h5ad}"
 PORT="${PORT:-8501}"
@@ -31,6 +36,12 @@ prepared_path() {  # echo the prepared path for a given raw path
 cmd_setup() {
   echo ">> Installing dependencies from requirements.txt"
   "$PY" -m pip install -r requirements.txt
+}
+
+cmd_install() {
+  echo ">> Installing scviewer (editable) with app+prepare+excel extras"
+  "$PY" -m pip install -e '.[all]'
+  echo ">> Console scripts installed: scviewer, scviewer-prepare"
 }
 
 cmd_prepare() {
@@ -60,6 +71,35 @@ cmd_benchmark() {
       --benchmark results/benchmark_results.json --out results/figures --benchmark-only
 }
 
+cmd_bench_r() {
+  # Cross-language benchmark: builds a native Seurat object from the exported
+  # data/for_seurat/ files (written by benchmark.py / prepare export) and times
+  # the shared Seurat rendering substrate. Requires R + Seurat (see README).
+  local dir="data/for_seurat"
+  if [ ! -f "$dir/lognorm.mtx" ] || [ ! -f "$dir/bench_spec.json" ]; then
+    echo "!! $dir exports missing. Run:  ./run.sh benchmark   first" >&2
+    exit 1
+  fi
+  if [ ! -f "data/chicken_heart.seurat.rds" ]; then
+    echo ">> Building Seurat .rds from $dir (one-time)"
+    "$RSCRIPT" build_seurat.R
+  fi
+  echo ">> Running R/Seurat benchmark -> results/benchmark_r.json"
+  "$RSCRIPT" bench_r.R
+  echo ">> Merging cross-language results + rendering comparison figures"
+  "$PY" scviewer/merge_bench.py \
+      --py results/benchmark_results.json --r results/benchmark_r.json \
+      --out results/benchmark_results.json --figdir results/figures \
+      --csv results/benchmark_comparison.csv
+}
+
+cmd_api_demo() {
+  local prepared; prepared="$(prepared_path "$RAW")"
+  if [ ! -f "$prepared" ]; then cmd_prepare "$RAW"; fi
+  echo ">> Running programmatic API demo -> results/api_demo/"
+  "$PY" scviewer/api_demo.py --prepared "$prepared" --out results/api_demo
+}
+
 cmd_figures() {
   local prepared; prepared="$(prepared_path "$RAW")"
   if [ ! -f "$prepared" ]; then cmd_prepare "$RAW"; fi
@@ -79,14 +119,17 @@ main() {
   local sub="${1:-help}"; shift || true
   case "$sub" in
     setup)     cmd_setup "$@" ;;
+    install)   cmd_install "$@" ;;
     prepare)   cmd_prepare "$@" ;;
     app)       cmd_app "$@" ;;
     benchmark) cmd_benchmark "$@" ;;
+    bench-r)   cmd_bench_r "$@" ;;
+    api-demo)  cmd_api_demo "$@" ;;
     figures)   cmd_figures "$@" ;;
     all)       cmd_all "$@" ;;
     help|-h|--help)
-      sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' ;;
-    *) echo "Unknown subcommand: $sub"; sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+      sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) echo "Unknown subcommand: $sub"; sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
   esac
 }
 main "$@"
