@@ -110,11 +110,11 @@ The Streamlit app (`scviewer/app.py`) has five tabs:
 
 A sidebar picks the dataset (any `*.prepared.h5ad` in `DATA_DIR`) and applies metadata filters shared across all tabs.
 
-### Demonstration figures (chicken-heart developmental atlas, 22,315 cells)
+<!-- ### Demonstration figures (chicken-heart developmental atlas, 22,315 cells)
 
 UMAP colored by 15 annotated cell types, multi-gene expression grid (MYL2, HBA1, IFI6, FN1, MDK, POSTN), violin plot grouped by sample, and cell-type composition bar.
 
----
+--- -->
 
 ## Programmatic API
 
