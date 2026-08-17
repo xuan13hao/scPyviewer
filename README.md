@@ -1,10 +1,10 @@
-# scPyviewer  — Python-native interactive viewer for single-cell data
+# scPyviewer — Python-native interactive viewer for single-cell data
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/built%20with-Streamlit-FF4B4B.svg)](https://streamlit.io)
 
-**scPyviewer ** is a lightweight, browser-based explorer for analyzed single-cell datasets. It ingests an **AnnData** (`.h5ad`) object directly — no Seurat conversion, no notebook — and lets a non-programmer explore embeddings, gene expression, metadata, and marker/DE tables, then share the result with a single command.
+**scPyviewer** is a lightweight, browser-based explorer for analyzed single-cell datasets. It ingests an **AnnData** (`.h5ad`) object directly — no Seurat conversion, no notebook — and lets a non-programmer explore embeddings, gene expression, metadata, and marker/DE tables, then share the result with a single command.
 
 Every actively maintained tool in this space (ShinyCell, ScRDAVis, sCIRCLE/scViewer) is built on R Shiny and requires a Seurat object. **scPyviewer fills the Python/scanpy gap**: it stays entirely inside the Python stack that most single-cell analysis already runs in.
 
@@ -12,7 +12,7 @@ Every actively maintained tool in this space (ShinyCell, ScRDAVis, sCIRCLE/scVie
 
 ## Highlights
 
-| | scPyviewer  | ShinyCell | ScRDAVis | sCIRCLE/scViewer |
+| | scPyviewer | ShinyCell | ScRDAVis | sCIRCLE/scViewer |
 |---|:---:|:---:|:---:|:---:|
 | Embedding plot (UMAP/PCA/t-SNE) | ✓ | ✓ | ✓ | ✓ |
 | Single/multi-gene expression overlay | ✓ | ✓ | ✓ | Partial |
@@ -40,13 +40,13 @@ pip install -e '.[all]'
 
 # conda
 conda env create -f environment.yml
-conda activate scviewer
+conda activate scPyviewer
 pip install -e .
 ```
 
-This registers two console scripts — **`scviewer`** (launch the viewer) and **`scviewer-prepare`** (raw `.h5ad` → viewer-ready object) — and makes `import scviewer` available.
+This registers two console scripts — **`scpyviewer`** (launch the viewer) and **`scpyviewer-prepare`** (raw `.h5ad` → viewer-ready object) — and makes `import scPyviewer` available.
 
-Optional dependency groups: `app` (Streamlit), `prepare` (leiden clustering), `excel` (`.xlsx` export), `all` (everything).
+Optional dependency groups: `app` (Streamlit), `prepare` (leiden clustering), `excel` (`.xlsx` export), `dev` (pytest), `all` (everything).
 
 ---
 
@@ -78,6 +78,7 @@ Everything is driven through **`run.sh`**, the single reproduction interface:
 | `./run.sh bench-r` | R/Seurat cross-language benchmark (needs R + Seurat) → comparison figures |
 | `./run.sh api-demo` | exercise the programmatic API → `results/api_demo/` |
 | `./run.sh figures` | regenerate all demonstration + paper figures |
+| `./run.sh test` | run the pytest test suite |
 | `./run.sh all` | `prepare → benchmark → figures` |
 | `./run.sh help` | usage |
 
@@ -100,7 +101,7 @@ PORT=9000 ./run.sh app
 
 ## The viewer
 
-The Streamlit app (`scviewer/app.py`) has five tabs:
+The Streamlit app (`scPyviewer/app.py`) has five tabs:
 
 - **Embedding** — any 2-D embedding colored by metadata or gene expression
 - **Expression** — single/multi-gene overlays, violin, and dot plots grouped by any metadata column
@@ -110,42 +111,51 @@ The Streamlit app (`scviewer/app.py`) has five tabs:
 
 A sidebar picks the dataset (any `*.prepared.h5ad` in `DATA_DIR`) and applies metadata filters shared across all tabs.
 
-<!-- ### Demonstration figures (chicken-heart developmental atlas, 22,315 cells)
-
-UMAP colored by 15 annotated cell types, multi-gene expression grid (MYL2, HBA1, IFI6, FN1, MDK, POSTN), violin plot grouped by sample, and cell-type composition bar.
-
---- -->
+---
 
 ## Programmatic API
 
-The same data and plotting layers that back the app are exposed as a public Python API:
+The same data and plotting layers that back the app are exposed as a public Python API. Every `plot_*` function returns a Matplotlib `Figure`; every `*_table` function returns a pandas `DataFrame`.
 
 ```python
-import scviewer as sv
+import scPyviewer as sv
 
-# toy example (included in data/)
+# load a prepared dataset
 ds = sv.load_dataset("data/toy_example.prepared.h5ad")
-print(ds.n_obs, ds.n_vars, ds.group_key)      # 500  200  cell_type
+print(ds.n_obs, ds.n_vars, ds.group_key)   # 500  200  cell_type
 
-# figures -> matplotlib.figure.Figure
-fig = sv.plot_embedding(ds, color=ds.group_key)      # color by metadata
-fig = sv.plot_embedding(ds, gene="CD3D")             # color by gene
+# --- figures → matplotlib.figure.Figure ---
+fig = sv.plot_embedding(ds, color=ds.group_key)          # color by metadata
+fig = sv.plot_embedding(ds, gene="CD3D")                 # color by gene
 fig = sv.plot_multigene(ds, genes=["CD3D", "CD19", "CD14"])
 fig = sv.plot_violin(ds, gene="CD3D", group=ds.group_key)
 fig = sv.plot_dotplot(ds, genes=["CD3D", "CD19", "CD14"], group=ds.group_key)
 fig = sv.plot_composition(ds, group=ds.group_key, split="sample")
 
-# tables -> pandas.DataFrame
+# --- tables → pandas.DataFrame ---
 mk   = sv.markers_table(ds, top_n=25)
 comp = sv.composition_table(ds, group=ds.group_key, split="sample")
 meta = sv.metadata_table(ds)
 
-# batch export
+# --- batch export ---
 sv.export_figures(ds, "out/figs",   formats=["png", "pdf", "svg"])
 sv.export_tables(ds,  "out/tables", formats=["csv", "tsv", "xlsx"])
 ```
 
-Every `plot_*` function returns a Matplotlib `Figure`; every `*_table` function returns a pandas `DataFrame`. The API renders through Matplotlib (not Plotly) so static export is dependency-light and needs no headless browser.
+### API parameter reference (v0.2.0)
+
+All plotting functions accept additional style parameters beyond the defaults:
+
+| Function | Key parameters |
+|---|---|
+| `plot_embedding` | `color`, `gene`, `embedding`, `point_size`, `figsize`, `label_groups`, `cmap`, `alpha`, `title`, `dpi`, `show_legend` |
+| `plot_multigene` | `genes`, `embedding`, `ncol`, `point_size`, `cmap`, `alpha`, `max_genes` |
+| `plot_violin` | `gene`, `group`, `figsize`, `kind` (`"violin"` / `"box"`), `palette`, `rotation`, `show_points` |
+| `plot_dotplot` | `genes`, `group`, `cmap`, `size_scale`, `standard_scale` (`None` / `"var"` / `"group"`) |
+| `plot_composition` | `group`, `split`, `normalize`, `figsize`, `palette`, `bar_width`, `sort_groups` |
+| `markers_table` | `group`, `top_n`, `sort_by`, `ascending` |
+| `export_figures` | `outdir`, `formats`, `genes`, `dpi` |
+| `export_tables` | `outdir`, `formats`, `top_n` |
 
 Run `./run.sh api-demo` for a worked end-to-end example → `results/api_demo/`.
 
@@ -153,14 +163,14 @@ Run `./run.sh api-demo` for a worked end-to-end example → `results/api_demo/`.
 
 ## What `prepare` does
 
-`prepare.py` is **dataset-agnostic and idempotent** — it guards every step and only fills in what is missing:
+`scPyviewer/prepare.py` is **dataset-agnostic and idempotent** — it guards every step and only fills in what is missing:
 
 1. Log-normalize `X` (skipped if already log-normalized)
 2. Highly-variable gene selection → PCA (skipped if `X_pca` or an alternative embedding exists)
 3. UMAP + optional t-SNE (pre-existing embeddings are preserved)
-4. Per-group differential expression (Wilcoxon) over the auto-selected grouping column → `uns['rank_genes_groups']` + tidy `uns['scviewer_markers']`
+4. Per-group differential expression (Wilcoxon) over the auto-selected grouping column → `uns['rank_genes_groups']` + tidy `uns['scPyviewer_markers']`
 5. CSR → CSC conversion for fast backed column access
-6. `uns['scviewer']` provenance block + sidecar `*.manifest.json`
+6. `uns['scPyviewer']` provenance block + sidecar `*.manifest.json`
 
 | Flag | Effect |
 |---|---|
@@ -178,7 +188,7 @@ Run `./run.sh api-demo` for a worked end-to-end example → `results/api_demo/`.
 Files larger than 500 MB are opened with `backed='r'` so the expression matrix `X` stays on disk and is read column-by-column on demand. Only embeddings, metadata, and graphs enter RAM. Typical viewer peak memory on a 6 GB dataset is **< 500 MB**.
 
 ```bash
-SCVIEWER_BACKED_BYTES=1000000000 ./run.sh app   # back files > 1 GB
+SCPYVIEWER_BACKED_BYTES=1000000000 ./run.sh app   # back files > 1 GB
 ```
 
 ### Prepare — backed-only mode (auto or explicit)
@@ -190,8 +200,21 @@ If the file is larger than 0.66× available RAM, `prepare.py` automatically swit
 - Streams `X` directly from the source file on write
 - Peak RAM: **≈ 2–6 GB** regardless of file size
 
-In backed-only mode DE markers are skipped (they require `X` in RAM).
+In backed-only mode, DE markers are skipped (they require `X` in RAM).
 
+---
+
+## Running the tests
+
+```bash
+./run.sh test
+# or directly:
+python -m pytest tests/ -v
+```
+
+The test suite (`tests/test_api.py`) contains **85 tests** covering every public API function, all new style parameters, error paths, and export helpers. Tests run against an in-memory toy AnnData fixture (no disk download required).
+
+---
 
 ## Full reproduction from scratch
 
@@ -215,11 +238,11 @@ environment.yml               conda environment
 requirements.txt              pinned dependencies (Python 3.11)
 build_seurat.R                AnnData export -> native Seurat .rds (timed)
 bench_r.R                     R/Seurat cross-language render benchmark
-scviewer/
-  __init__.py                 re-exports the public API (import scviewer as sv)
+scPyviewer/
+  __init__.py                 re-exports the public API (import scPyviewer as sv)
   api.py                      public API: plot_*/*_table/export_* (matplotlib)
   api_demo.py                 worked API example (run.sh api-demo)
-  _launch.py                  `scviewer` console-script launcher
+  _launch.py                  `scpyviewer` console-script launcher
   prepare.py                  raw .h5ad -> viewer-ready .prepared.h5ad
   app.py                      Streamlit viewer (5 tabs)
   io_utils.py                 AnnData loading / metadata / gene access
@@ -227,6 +250,9 @@ scviewer/
   benchmark.py                feature-parity + performance + time-to-share
   merge_bench.py              merge Python + R benchmarks, render comparison figs
   make_figures.py             demonstration + paper figures
+tests/
+  conftest.py                 shared fixtures (in-memory toy AnnData)
+  test_api.py                 85 pytest tests covering the full public API
 data/                         .h5ad inputs, *.prepared.h5ad
 results/
   benchmark_results.json        Python benchmark output
@@ -253,14 +279,14 @@ paper/                        manuscript
 
 <!-- ## Citation
 
-If you use scviewer in your research, please cite:
+If you use scPyviewer in your research, please cite:
 
 ```bibtex
-@article{scviewer2025,
-  title   = {scviewer: a Python-native interactive viewer for single-cell data},
+@article{scPyviewer2026,
+  title   = {scPyviewer: a Python-native interactive viewer for single-cell data},
   author  = {...},
   journal = {...},
-  year    = {2025},
+  year    = {2026},
   doi     = {...}
 }
 ```

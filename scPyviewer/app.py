@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-app.py — scviewer: a Python-native, Streamlit interactive viewer for AnnData
+app.py — scPyviewer: a Python-native, Streamlit interactive viewer for AnnData
 (.h5ad) single-cell objects.
 
 Feature modules (map to the study feature-parity checklist):
@@ -12,7 +12,7 @@ Feature modules (map to the study feature-parity checklist):
   6. No-code shareable deployment             -> this Streamlit app
   7. Native AnnData input (no Seurat)         -> loads .h5ad directly
 
-Run:  streamlit run scviewer/app.py -- --data-dir data
+Run:  streamlit run scPyviewer/app.py -- --data-dir data
 """
 from __future__ import annotations
 
@@ -25,10 +25,10 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-# allow running both as `streamlit run scviewer/app.py` and as a module
+# allow running both as `streamlit run scPyviewer/app.py` and as a module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scviewer import io_utils as io  # noqa: E402
-from scviewer import plots  # noqa: E402
+from scPyviewer import io_utils as io  # noqa: E402
+from scPyviewer import plots  # noqa: E402
 
 
 # --------------------------------------------------------------------- config
@@ -38,13 +38,13 @@ def get_data_dir() -> str:
     if "--" in sys.argv:
         argv = sys.argv[sys.argv.index("--") + 1:]
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data-dir", default=os.environ.get("SCVIEWER_DATA_DIR", "data"))
+    ap.add_argument("--data-dir", default=os.environ.get("SCPYVIEWER_DATA_DIR", "data"))
     args, _ = ap.parse_known_args(argv)
     return args.data_dir
 
 
 DATA_DIR = get_data_dir()
-st.set_page_config(page_title="scviewer", layout="wide", page_icon="🔬")
+st.set_page_config(page_title="scPyviewer", layout="wide", page_icon="🔬")
 
 
 @st.cache_resource(show_spinner="Loading AnnData…")
@@ -66,13 +66,13 @@ def apply_filters(adata, filters: dict):
 
 
 # --------------------------------------------------------------------- sidebar
-st.sidebar.title("🔬 scviewer")
+st.sidebar.title("🔬 scPyviewer")
 st.sidebar.caption("Python-native AnnData explorer")
 
 datasets = io.discover_datasets(DATA_DIR)
 if not datasets:
     st.error(f"No .h5ad files found in `{DATA_DIR}`. "
-             f"Run `scviewer/prepare.py` first, or set --data-dir.")
+             f"Run `scPyviewer/prepare.py` first, or set --data-dir.")
     st.stop()
 
 ds_name = st.sidebar.selectbox("Dataset", list(datasets.keys()))
@@ -110,7 +110,7 @@ if n_sel < adata.n_obs:
 view = adata[mask] if n_sel < adata.n_obs else adata
 
 # For datasets with many cells, subsample scatter plots for responsiveness.
-MAX_SCATTER = int(os.environ.get("SCVIEWER_MAX_SCATTER", 200_000))
+MAX_SCATTER = int(os.environ.get("SCPYVIEWER_MAX_SCATTER", 200_000))
 
 
 # --------------------------------------------------------------------- tabs

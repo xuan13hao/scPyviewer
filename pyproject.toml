@@ -3,13 +3,13 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "scviewer"
-version = "0.1.0"
+name = "scPyviewer"
+version = "0.2.0"
 description = "Python-native interactive viewer and programmatic API for single-cell AnnData (.h5ad) objects"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "scviewer authors", email = "xuanhao@iu.edu" }]
+authors = [{ name = "scPyviewer authors", email = "xuanhao@iu.edu" }]
 keywords = ["single-cell", "scRNA-seq", "AnnData", "scanpy", "visualization", "streamlit"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -29,24 +29,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Interactive Streamlit app (the `scviewer` launcher needs this).
+# Interactive Streamlit app (the `scpyviewer` launcher needs this).
 app = ["streamlit>=1.30"]
 # prepare.py clustering extras.
 prepare = ["leidenalg>=0.10", "igraph>=0.11"]
 # Table export to .xlsx.
 excel = ["openpyxl>=3.1"]
+# Testing.
+dev = ["pytest>=7.0", "pytest-cov>=4.0"]
 all = ["streamlit>=1.30", "leidenalg>=0.10", "igraph>=0.11", "openpyxl>=3.1"]
 
 [project.scripts]
-scviewer = "scviewer._launch:main"
-scviewer-prepare = "scviewer.prepare:main"
+scpyviewer = "scPyviewer._launch:main"
+scpyviewer-prepare = "scPyviewer.prepare:main"
 
 [project.urls]
-Homepage = "https://github.com/xuan13hao/scviewer"
+Homepage = "https://github.com/xuan13hao/scPyviewer"
 
 [tool.setuptools]
 # pure-python package plus the app script that Streamlit runs by path
-packages = ["scviewer"]
+packages = ["scPyviewer"]
 
 [tool.setuptools.package-data]
-scviewer = ["*.py"]
+scPyviewer = ["*.py"]

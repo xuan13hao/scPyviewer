@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# run.sh — single reproduction interface for scviewer
+# run.sh — single reproduction interface for scPyviewer
 #
 #   ./run.sh setup                 install Python dependencies
-#   ./run.sh install               pip install -e . (adds `scviewer` commands + API)
+#   ./run.sh install               pip install -e . (adds `scpyviewer` commands + API)
 #   ./run.sh prepare [RAW.h5ad]    raw .h5ad -> viewer-ready .prepared.h5ad
 #   ./run.sh app                   launch the Streamlit viewer
 #   ./run.sh benchmark             run the Python benchmark harness + figures
 #   ./run.sh bench-r               run the R/Seurat cross-language benchmark
 #   ./run.sh api-demo              exercise the programmatic API -> figures + tables
 #   ./run.sh figures               regenerate the demonstration/paper figures
+#   ./run.sh test                  run the pytest test suite
 #   ./run.sh all                   prepare -> benchmark -> figures
 #
 # Environment overrides:
@@ -39,21 +40,21 @@ cmd_setup() {
 }
 
 cmd_install() {
-  echo ">> Installing scviewer (editable) with app+prepare+excel extras"
+  echo ">> Installing scPyviewer (editable) with app+prepare+excel extras"
   "$PY" -m pip install -e '.[all]'
-  echo ">> Console scripts installed: scviewer, scviewer-prepare"
+  echo ">> Console scripts installed: scpyviewer, scpyviewer-prepare"
 }
 
 cmd_prepare() {
   local raw="${1:-$RAW}"
   local out; out="$(prepared_path "$raw")"
   echo ">> Preparing $raw -> $out"
-  "$PY" scviewer/prepare.py "$raw" -o "$out"
+  "$PY" scPyviewer/prepare.py "$raw" -o "$out"
 }
 
 cmd_app() {
-  echo ">> Launching scviewer on http://localhost:$PORT  (data-dir: $DATA_DIR)"
-  exec "$PY" -m streamlit run scviewer/app.py \
+  echo ">> Launching scPyviewer on http://localhost:$PORT  (data-dir: $DATA_DIR)"
+  exec "$PY" -m streamlit run scPyviewer/app.py \
       --server.port "$PORT" -- --data-dir "$DATA_DIR"
 }
 
@@ -64,10 +65,10 @@ cmd_benchmark() {
     cmd_prepare "$RAW"
   fi
   echo ">> Running benchmark harness"
-  "$PY" scviewer/benchmark.py --prepared "$prepared" --raw "$RAW" \
+  "$PY" scPyviewer/benchmark.py --prepared "$prepared" --raw "$RAW" \
       --out results/benchmark_results.json
   echo ">> Rendering benchmark figures"
-  "$PY" scviewer/make_figures.py --prepared "$prepared" \
+  "$PY" scPyviewer/make_figures.py --prepared "$prepared" \
       --benchmark results/benchmark_results.json --out results/figures --benchmark-only
 }
 
@@ -87,7 +88,7 @@ cmd_bench_r() {
   echo ">> Running R/Seurat benchmark -> results/benchmark_r.json"
   "$RSCRIPT" bench_r.R
   echo ">> Merging cross-language results + rendering comparison figures"
-  "$PY" scviewer/merge_bench.py \
+  "$PY" scPyviewer/merge_bench.py \
       --py results/benchmark_results.json --r results/benchmark_r.json \
       --out results/benchmark_results.json --figdir results/figures \
       --csv results/benchmark_comparison.csv
@@ -97,15 +98,20 @@ cmd_api_demo() {
   local prepared; prepared="$(prepared_path "$RAW")"
   if [ ! -f "$prepared" ]; then cmd_prepare "$RAW"; fi
   echo ">> Running programmatic API demo -> results/api_demo/"
-  "$PY" scviewer/api_demo.py --prepared "$prepared" --out results/api_demo
+  "$PY" scPyviewer/api_demo.py --prepared "$prepared" --out results/api_demo
 }
 
 cmd_figures() {
   local prepared; prepared="$(prepared_path "$RAW")"
   if [ ! -f "$prepared" ]; then cmd_prepare "$RAW"; fi
   echo ">> Rendering demonstration + benchmark figures"
-  "$PY" scviewer/make_figures.py --prepared "$prepared" \
+  "$PY" scPyviewer/make_figures.py --prepared "$prepared" \
       --benchmark results/benchmark_results.json --out results/figures
+}
+
+cmd_test() {
+  echo ">> Running pytest test suite"
+  "$PY" -m pytest tests/ -v --tb=short
 }
 
 cmd_all() {
@@ -126,10 +132,11 @@ main() {
     bench-r)   cmd_bench_r "$@" ;;
     api-demo)  cmd_api_demo "$@" ;;
     figures)   cmd_figures "$@" ;;
+    test)      cmd_test "$@" ;;
     all)       cmd_all "$@" ;;
     help|-h|--help)
-      sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//' ;;
-    *) echo "Unknown subcommand: $sub"; sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+      sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) echo "Unknown subcommand: $sub"; sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
   esac
 }
 main "$@"

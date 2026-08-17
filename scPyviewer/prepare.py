@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 prepare.py — Turn a raw or partially-processed AnnData (.h5ad) into a
-viewer-ready object for the scviewer Streamlit app.
+viewer-ready object for the scPyviewer Streamlit app.
 
 Design goals
 ------------
@@ -22,8 +22,8 @@ What it guarantees on output
 * PCA in obsm['X_pca']; UMAP in obsm['X_umap']; t-SNE in obsm['X_tsne'].
   (Pre-existing embeddings such as X_uce are left untouched.)
 * A marker/DE table per grouping in uns['rank_genes_groups'] and a tidy,
-  app-friendly copy in uns['scviewer_markers'].
-* uns['scviewer'] metadata block: schema hints (categorical vs numeric obs
+  app-friendly copy in uns['scPyviewer_markers'].
+* uns['scPyviewer'] metadata block: schema hints (categorical vs numeric obs
   fields), the embeddings available, and the grouping used for DE.
 """
 from __future__ import annotations
@@ -140,7 +140,7 @@ def prepare_backed_only(in_path: str, out_path: str,
     Opens in backed='r' mode so X stays on disk throughout. Computes UMAP from
     any existing alternative embedding (X_uce, X_scvi, ...) then discards it so
     the viewer's RAM footprint stays small. X is NOT normalised -- gene_vector in
-    the viewer applies log1p on demand when x_is_raw is set in uns['scviewer'].
+    the viewer applies log1p on demand when x_is_raw is set in uns['scPyviewer'].
     Peak RAM: ~2-3 GB regardless of file size.
     """
     import gc as _gc
@@ -204,17 +204,17 @@ def prepare_backed_only(in_path: str, out_path: str,
     # --- 3. Viewer metadata block -----------------------------------------------
     gk = _pick_grouping(adata, group_key)
     embeddings = sorted(k for k in adata.obsm.keys() if k.startswith("X_"))
-    adata.uns["scviewer"] = {
+    adata.uns["scPyviewer"] = {
         "schema": _schema(adata),
         "embeddings": embeddings,
         "group_key": gk,
         "n_obs": int(adata.n_obs),
         "n_vars": int(adata.n_vars),
         "x_is_raw": x_is_raw,
-        "prepared_by": "scviewer.prepare (backed-only)",
+        "prepared_by": "scPyviewer.prepare (backed-only)",
     }
     manifest["embeddings"] = embeddings
-    manifest["schema"] = adata.uns["scviewer"]["schema"]
+    manifest["schema"] = adata.uns["scPyviewer"]["schema"]
     manifest["group_key"] = gk
 
     # Remove null-encoded uns entries that backed='r' cannot deserialise.
@@ -232,7 +232,7 @@ def prepare_backed_only(in_path: str, out_path: str,
 def prepare(in_path: str, out_path: str, group_key: str | None = None,
             n_top_genes: int = 2000, do_tsne: bool = True,
             convert_csc: bool = True, backed_only: bool = False) -> dict[str, Any]:
-    """Prepare an AnnData for the scviewer app.
+    """Prepare an AnnData for the scPyviewer app.
 
     convert_csc controls whether X is converted to CSC format (fastest backed
     column access) at the cost of 2x peak RAM for the conversion step.  Pass
@@ -359,8 +359,8 @@ def prepare(in_path: str, out_path: str, group_key: str | None = None,
     elif "rank_genes_groups" in adata.uns and not group_key:
         manifest["skipped"].append("rank_genes_groups (already present)")
         try:
-            adata.uns["scviewer_markers"] = _tidy_markers(adata, gk).to_dict("list")
-            manifest["computed"].append("scviewer_markers (tidied from existing DE)")
+            adata.uns["scPyviewer_markers"] = _tidy_markers(adata, gk).to_dict("list")
+            manifest["computed"].append("scPyviewer_markers (tidied from existing DE)")
         except Exception as e:  # noqa
             manifest["warnings"].append(f"tidy markers failed: {e}")
     else:
@@ -369,23 +369,23 @@ def prepare(in_path: str, out_path: str, group_key: str | None = None,
             sc.tl.rank_genes_groups(adata, groupby=gk, method="wilcoxon",
                                     use_raw=False, layer=None)
             manifest["computed"].append(f"rank_genes_groups(wilcoxon, groupby={gk})")
-            adata.uns["scviewer_markers"] = _tidy_markers(adata, gk).to_dict("list")
-            manifest["computed"].append("scviewer_markers")
+            adata.uns["scPyviewer_markers"] = _tidy_markers(adata, gk).to_dict("list")
+            manifest["computed"].append("scPyviewer_markers")
         except Exception as e:  # noqa
             manifest["warnings"].append(f"rank_genes_groups failed: {e}")
 
     # --- 8. viewer metadata block ---------------------------------------------
     embeddings = sorted([k for k in adata.obsm.keys() if k.startswith("X_")])
-    adata.uns["scviewer"] = {
+    adata.uns["scPyviewer"] = {
         "schema": _schema(adata),
         "embeddings": embeddings,
         "group_key": gk,
         "n_obs": int(adata.n_obs),
         "n_vars": int(adata.n_vars),
-        "prepared_by": "scviewer.prepare",
+        "prepared_by": "scPyviewer.prepare",
     }
     manifest["embeddings"] = embeddings
-    manifest["schema"] = adata.uns["scviewer"]["schema"]
+    manifest["schema"] = adata.uns["scPyviewer"]["schema"]
 
     # Remove uns entries that carry null-encoded h5py values (e.g. log1p.base).
     # Older scanpy writes these; anndata 0.11.x backed='r' cannot read them.
@@ -419,7 +419,7 @@ def prepare(in_path: str, out_path: str, group_key: str | None = None,
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Prepare an AnnData .h5ad for the scviewer app.")
+    ap = argparse.ArgumentParser(description="Prepare an AnnData .h5ad for the scPyviewer app.")
     ap.add_argument("input", help="path to input .h5ad")
     ap.add_argument("-o", "--output", help="path to output prepared .h5ad")
     ap.add_argument("-g", "--group-key", default=None,

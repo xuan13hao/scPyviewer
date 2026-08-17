@@ -1,5 +1,5 @@
 """
-plots.py — Plotly figure builders for the scviewer app. Pure functions:
+plots.py — Plotly figure builders for the scPyviewer app. Pure functions:
 take an AnnData (+ selections) and return a plotly.graph_objects.Figure.
 No Streamlit dependency, so the same builders drive the app and headless
 figure export.

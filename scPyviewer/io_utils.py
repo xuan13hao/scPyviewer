@@ -1,6 +1,6 @@
 """
 io_utils.py — dataset discovery, cached AnnData loading, and value extraction
-for the scviewer Streamlit app. All functions are UI-framework-agnostic
+for the scPyviewer Streamlit app. All functions are UI-framework-agnostic
 (no Streamlit imports) so they can be reused by the benchmark harness and the
 figure-generation scripts.
 """
@@ -39,13 +39,13 @@ def discover_datasets(data_dir: str) -> dict[str, str]:
 
 
 # ------------------------------------------------------------------ loading
-_BACKED_THRESHOLD = int(os.environ.get("SCVIEWER_BACKED_BYTES", 500_000_000))  # 500 MB
+_BACKED_THRESHOLD = int(os.environ.get("SCPYVIEWER_BACKED_BYTES", 500_000_000))  # 500 MB
 
 
 def load_adata(path: str):
     """Load an AnnData from disk.
 
-    Files larger than SCVIEWER_BACKED_BYTES (default 500 MB) are opened in
+    Files larger than SCPYVIEWER_BACKED_BYTES (default 500 MB) are opened in
     backed='r' mode so the expression matrix stays on disk and is read
     column-by-column on demand.  Falls back to a full in-memory load if the
     backed open fails (e.g. the file has uns entries with null encodings from
@@ -66,9 +66,9 @@ def load_adata(path: str):
 
 
 def get_meta(adata) -> dict[str, Any]:
-    """Return the scviewer metadata block, reconstructing it if absent so the
+    """Return the scPyviewer metadata block, reconstructing it if absent so the
     app also works on AnnData objects that were not run through prepare.py."""
-    sv = adata.uns.get("scviewer")
+    sv = adata.uns.get("scPyviewer")
     if sv is not None:
         # h5ad round-trips numpy arrays; coerce to plain python
         return {
@@ -145,7 +145,7 @@ def gene_vector(adata, gene: str, layer: str = "lognorm") -> np.ndarray:
 
     # Backed-only prepare mode stores raw counts in X.  Apply log1p here so that
     # gene-expression colouring and violin plots use a log scale automatically.
-    if adata.uns.get("scviewer", {}).get("x_is_raw"):
+    if adata.uns.get("scPyviewer", {}).get("x_is_raw"):
         col = np.log1p(col)
 
     return col
@@ -164,8 +164,8 @@ def category_colors(adata, field: str) -> dict[str, str] | None:
 
 def markers_df(adata) -> pd.DataFrame | None:
     """Return the tidy marker/DE table, or None if absent."""
-    if "scviewer_markers" in adata.uns:
-        return pd.DataFrame(adata.uns["scviewer_markers"])
+    if "scPyviewer_markers" in adata.uns:
+        return pd.DataFrame(adata.uns["scPyviewer_markers"])
     if "rank_genes_groups" in adata.uns:
         rg = adata.uns["rank_genes_groups"]
         groups = list(rg["names"].dtype.names)

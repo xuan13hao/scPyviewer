@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-"""api_demo.py — exercise the scviewer programmatic API end-to-end.
+"""api_demo.py — exercise the scPyviewer programmatic API end-to-end.
 
 Loads a prepared .h5ad, renders every figure type and every table through the
-public :mod:`scviewer` API, and writes them under an output directory. Used by
+public :mod:`scPyviewer` API, and writes them under an output directory. Used by
 ``run.sh api-demo`` and as a copy-paste example of the callable interface.
 """
 from __future__ import annotations
@@ -10,11 +10,11 @@ from __future__ import annotations
 import argparse
 import os
 
-import scviewer as sv
+import scPyviewer as sv
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Run the scviewer API demo.")
+    ap = argparse.ArgumentParser(description="Run the scPyviewer API demo.")
     ap.add_argument("--prepared", required=True, help="prepared .h5ad path")
     ap.add_argument("--out", default="results/api_demo", help="output directory")
     ap.add_argument("--genes", nargs="*", default=None,

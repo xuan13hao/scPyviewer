@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 make_figures.py — Render the demonstration/paper figures directly from the
-scviewer plot builders (the same functions the Streamlit app calls), so the
+scPyviewer plot builders (the same functions the Streamlit app calls), so the
 paper figures are faithful to what a user sees in the tool.
 
 Two figure families:
@@ -12,7 +12,7 @@ Two figure families:
     (rendered from the prepared AnnData via matplotlib for static export).
 
 Usage:
-  python scviewer/make_figures.py --prepared data/chicken_heart.prepared.h5ad \
+  python scPyviewer/make_figures.py --prepared data/chicken_heart.prepared.h5ad \
       --benchmark results/benchmark_results.json --out results/figures
   add --benchmark-only to render just the benchmark figures.
 """
@@ -30,7 +30,7 @@ from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch, Rectangle
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scviewer import io_utils as io  # noqa: E402
+from scPyviewer import io_utils as io  # noqa: E402
 
 
 # --------------------------------------------------------------- style
@@ -48,14 +48,14 @@ def _style():
 # --------------------------------------------------------------- benchmark figs
 def fig_feature_parity(bench: dict, out: str):
     cl = bench["feature_parity"]["checklist"]
-    tools = ["ShinyCell", "ScRDAVis", "sCIRCLE/scViewer", "scviewer"]
+    tools = ["ShinyCell", "ScRDAVis", "sCIRCLE/scViewer", "scPyviewer"]
     lvl = lambda v: {"Yes": 2, "Partial": 1, "No": 0}.get(v, 0)
     feat = [c["feature"].replace(" (UMAP/PCA/t-SNE)", "").replace(" gene / DE table", " / DE table")
             for c in cl]
     M = np.zeros((len(cl), len(tools))); labs = np.empty_like(M, dtype=object)
     for i, c in enumerate(cl):
         for j, t in enumerate(tools):
-            val = ("Yes" if c["scviewer"] else "No") if t == "scviewer" else c[t]
+            val = ("Yes" if c["scPyviewer"] else "No") if t == "scPyviewer" else c[t]
             M[i, j] = lvl(val); labs[i, j] = val
     cmap = ListedColormap(["#f0f0f0", "#fdc086", "#4d9221"])
     fig, ax = plt.subplots(figsize=(8.2, 4.6))
@@ -71,7 +71,7 @@ def fig_feature_parity(bench: dict, out: str):
     ax.set_yticks(np.arange(-.5, len(cl), 1), minor=True)
     ax.grid(which="minor", color="white", lw=1.5); ax.tick_params(which="minor", length=0)
     score = bench["feature_parity"]["parity_score"]
-    # ax.set_title(f"scviewer reproduces all 7 baseline features (parity {score:.0%})")
+    # ax.set_title(f"scPyviewer reproduces all 7 baseline features (parity {score:.0%})")
     leg = [Patch(facecolor="#4d9221", label="Yes"), Patch(facecolor="#fdc086", label="Partial"),
            Patch(facecolor="#f0f0f0", edgecolor="#ccc", label="No / absent")]
     ax.legend(handles=leg, loc="upper left", bbox_to_anchor=(1.01, 1.0), frameon=False)

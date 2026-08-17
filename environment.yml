@@ -1,8 +1,8 @@
-# Conda environment for scviewer.
+# Conda environment for scPyviewer.
 #   conda env create -f environment.yml
-#   conda activate scviewer
-#   pip install -e .            # installs the `scviewer` + `scviewer-prepare` commands
-name: scviewer
+#   conda activate scPyviewer
+#   pip install -e .            # installs the `scpyviewer` + `scpyviewer-prepare` commands
+name: scPyviewer
 channels:
   - conda-forge
 dependencies:
@@ -19,6 +19,8 @@ dependencies:
   - leidenalg>=0.10
   - python-igraph>=0.11
   - openpyxl>=3.1
+  - pytest>=7.0
+  - pytest-cov>=4.0
   - pip
   - pip:
       - -e .

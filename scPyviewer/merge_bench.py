@@ -45,7 +45,7 @@ def build_cross(py, r):
     for key, _ in OPS:
         rows.append(dict(
             operation=key.replace("render_", "").replace("_", " "),
-            scviewer_py_best=perf[key]["best_sec"],
+            scPyviewer_py_best=perf[key]["best_sec"],
             seurat_r_best=r[key]["best_sec"],
             speedup=round(r[key]["best_sec"] / perf[key]["best_sec"], 1)))
     cross = {
@@ -57,7 +57,7 @@ def build_cross(py, r):
                  "build on -- not a full Shiny server. best-of-3 render timings; "
                  "load is single-run; memory is peak process RSS."),
         "python": {
-            "tool": "scviewer (scanpy/AnnData, Plotly render)",
+            "tool": "scPyviewer (scanpy/AnnData, Plotly render)",
             "load_sec": perf["load_h5ad"]["best_sec"],
             "peak_mem_mb": perf["peak_python_mem_mb"],
             "renders": {k: perf[k]["best_sec"] for k, _ in OPS},
@@ -85,10 +85,10 @@ def build_cross(py, r):
 def write_csv(path, cross, rows):
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["operation", "scviewer_python_best_sec",
+        w.writerow(["operation", "scPyviewer_python_best_sec",
                     "seurat_r_best_sec", "r_over_py_speedup_x"])
         for row in rows:
-            w.writerow([row["operation"], row["scviewer_py_best"],
+            w.writerow([row["operation"], row["scPyviewer_py_best"],
                         row["seurat_r_best"], row["speedup"]])
         w.writerow([])
         w.writerow(["load_dataset_sec", cross["python"]["load_sec"],
@@ -104,12 +104,12 @@ def write_csv(path, cross, rows):
 
 def fig_rendertime(cross, rows, path):
     disp = [lbl for _, lbl in OPS]
-    py_v = np.array([r["scviewer_py_best"] for r in rows])
+    py_v = np.array([r["scPyviewer_py_best"] for r in rows])
     r_v = np.array([r["seurat_r_best"] for r in rows])
     y = np.arange(len(rows))[::-1]
     h = 0.38
     fig, ax = plt.subplots(figsize=(6.6, 3.6))
-    ax.barh(y + h / 2, py_v, height=h, color=PY_C, label="scviewer (Python / AnnData)")
+    ax.barh(y + h / 2, py_v, height=h, color=PY_C, label="scPyviewer (Python / AnnData)")
     ax.barh(y - h / 2, r_v, height=h, color=R_C, label="Seurat (R rendering substrate)")
     for yi, v in zip(y + h / 2, py_v):
         ax.text(v + 0.03, yi, f"{v:.2f}", va="center", ha="left", fontsize=6, color=PY_C)
@@ -118,7 +118,7 @@ def fig_rendertime(cross, rows, path):
     ax.set_yticks(y); ax.set_yticklabels(disp, fontsize=6.5)
     ax.set_xlabel("Render time (s, best of 3) - lower is better")
     ax.set_xlim(0, max(r_v) * 1.28)
-    ax.set_title("scviewer renders each shared view faster than the Seurat substrate",
+    ax.set_title("scPyviewer renders each shared view faster than the Seurat substrate",
                  fontsize=8, loc="left")
     ax.legend(frameon=False, fontsize=6.5, loc="lower right")
     for s in ("top", "right"):
@@ -136,7 +136,7 @@ def fig_memory_loadtime(cross, path):
     mem = [cross["python"]["peak_mem_mb"], cross["r"]["peak_mem_mb"]]
     axes[0].bar([0, 1], mem, color=[PY_C, R_C], width=0.6)
     axes[0].set_xticks([0, 1])
-    axes[0].set_xticklabels(["scviewer\n(Python)", "Seurat\n(R)"], fontsize=6.5)
+    axes[0].set_xticklabels(["scPyviewer\n(Python)", "Seurat\n(R)"], fontsize=6.5)
     axes[0].set_ylabel("Peak process memory (MB)")
     axes[0].set_ylim(0, max(mem) * 1.18)
     for x, v in zip([0, 1], mem):
@@ -145,7 +145,7 @@ def fig_memory_loadtime(cross, path):
     ld = [cross["python"]["load_sec"], cross["r"]["load_sec"]]
     axes[1].bar([0, 1], ld, color=[PY_C, R_C], width=0.6)
     axes[1].set_xticks([0, 1])
-    axes[1].set_xticklabels(["scviewer\n(.h5ad)", "Seurat\n(.rds)"], fontsize=6.5)
+    axes[1].set_xticklabels(["scPyviewer\n(.h5ad)", "Seurat\n(.rds)"], fontsize=6.5)
     axes[1].set_ylabel("Dataset load time (s)")
     axes[1].set_ylim(0, max(ld) * 1.18)
     for x, v in zip([0, 1], ld):
@@ -154,7 +154,7 @@ def fig_memory_loadtime(cross, path):
     for ax in axes:
         for s in ("top", "right"):
             ax.spines[s].set_visible(False)
-    fig.suptitle("scviewer uses less memory and loads faster",
+    fig.suptitle("scPyviewer uses less memory and loads faster",
                  fontsize=8.5, x=0.01, ha="left", y=1.02)
     fig.tight_layout()
     fig.savefig(path, dpi=300, bbox_inches="tight")

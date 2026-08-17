@@ -1,4 +1,4 @@
-# scviewer — Python-native interactive AnnData viewer
+# scPyviewer — Python-native interactive AnnData viewer
 # Pinned to the versions used for the paper's benchmarks (Python 3.11).
 scanpy==1.11.5
 anndata==0.12.19

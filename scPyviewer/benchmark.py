@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-benchmark.py — Evaluate the scviewer tool against the study's three outcomes:
+benchmark.py — Evaluate the scPyviewer tool against the study's three outcomes:
 
   (1) Feature-parity score  — proportion of the 7-item baseline checklist
       (anchored to ShinyCell / ScRDAVis / sCIRCLE / scViewer) that this tool
@@ -26,8 +26,8 @@ import tracemalloc
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scviewer import io_utils as io  # noqa: E402
-from scviewer import plots  # noqa: E402
+from scPyviewer import io_utils as io  # noqa: E402
+from scPyviewer import plots  # noqa: E402
 
 
 # --------------------------------------------------------------- feature parity
@@ -37,31 +37,31 @@ from scviewer import plots  # noqa: E402
 CHECKLIST = [
     {"feature": "Embedding plot (UMAP/PCA/t-SNE) with metadata coloring",
      "ShinyCell": "Yes", "ScRDAVis": "Yes", "sCIRCLE/scViewer": "Yes",
-     "scviewer": True, "evidence": "plots.embedding_scatter + Embedding tab"},
+     "scPyviewer": True, "evidence": "plots.embedding_scatter + Embedding tab"},
     {"feature": "Single/multi-gene expression overlay",
      "ShinyCell": "Yes", "ScRDAVis": "Yes", "sCIRCLE/scViewer": "Partial",
-     "scviewer": True, "evidence": "plots.multi_gene_grid + Expression tab"},
+     "scPyviewer": True, "evidence": "plots.multi_gene_grid + Expression tab"},
     {"feature": "Violin / box plot grouped by metadata",
      "ShinyCell": "Yes", "ScRDAVis": "Yes", "sCIRCLE/scViewer": "Partial",
-     "scviewer": True, "evidence": "plots.violin + Expression tab"},
+     "scPyviewer": True, "evidence": "plots.violin + Expression tab"},
     {"feature": "Marker gene / DE table browsing",
      "ShinyCell": "Partial", "ScRDAVis": "Yes", "sCIRCLE/scViewer": "No",
-     "scviewer": True, "evidence": "io_utils.markers_df + Markers/DE tab"},
+     "scPyviewer": True, "evidence": "io_utils.markers_df + Markers/DE tab"},
     {"feature": "Cross-dataset / cross-species comparison",
      "ShinyCell": "No", "ScRDAVis": "No", "sCIRCLE/scViewer": "No",
-     "scviewer": True, "evidence": "Compare tab (shared-gene + composition)"},
+     "scPyviewer": True, "evidence": "Compare tab (shared-gene + composition)"},
     {"feature": "No-code shareable deployment",
      "ShinyCell": "Yes", "ScRDAVis": "Yes", "sCIRCLE/scViewer": "Yes",
-     "scviewer": True, "evidence": "streamlit run (one command)"},
+     "scPyviewer": True, "evidence": "streamlit run (one command)"},
     {"feature": "Native Python/AnnData input (no Seurat conversion)",
      "ShinyCell": "No", "ScRDAVis": "No", "sCIRCLE/scViewer": "No",
-     "scviewer": True, "evidence": "io_utils.load_adata reads .h5ad directly"},
+     "scPyviewer": True, "evidence": "io_utils.load_adata reads .h5ad directly"},
 ]
 
 
 def feature_parity() -> dict:
     n = len(CHECKLIST)
-    implemented = sum(1 for r in CHECKLIST if r["scviewer"])
+    implemented = sum(1 for r in CHECKLIST if r["scPyviewer"])
     return {"checklist": CHECKLIST, "n_features": n,
             "n_implemented": implemented,
             "parity_score": round(implemented / n, 3)}
@@ -185,7 +185,7 @@ def main():
     args = ap.parse_args()
 
     results = {
-        "tool": "scviewer",
+        "tool": "scPyviewer",
         "feature_parity": feature_parity(),
         "performance": performance(args.prepared),
         "time_to_share": time_to_share(args.raw, args.prepared,

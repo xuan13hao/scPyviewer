@@ -1,7 +1,7 @@
-"""Console-script launcher for the scviewer Streamlit app.
+"""Console-script launcher for the scPyviewer Streamlit app.
 
-Exposed as the ``scviewer`` entry point. Forwards any extra CLI args to
-Streamlit after ``--`` so ``scviewer --data-dir mydata`` works.
+Exposed as the ``scpyviewer`` entry point. Forwards any extra CLI args to
+Streamlit after ``--`` so ``scpyviewer --data-dir mydata`` works.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def main() -> None:
         from streamlit.web import cli as stcli
     except Exception as exc:  # pragma: no cover
         sys.exit(
-            "scviewer: Streamlit is required to launch the viewer "
+            "scpyviewer: Streamlit is required to launch the viewer "
             f"(import failed: {exc}). Install with `pip install streamlit`."
         )
     sys.argv = stream_args
