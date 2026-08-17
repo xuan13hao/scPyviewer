@@ -1,18 +1,18 @@
-# scviewer — Python-native interactive viewer for single-cell data
+# scPyviewer  — Python-native interactive viewer for single-cell data
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/built%20with-Streamlit-FF4B4B.svg)](https://streamlit.io)
 
-**scviewer** is a lightweight, browser-based explorer for analyzed single-cell datasets. It ingests an **AnnData** (`.h5ad`) object directly — no Seurat conversion, no notebook — and lets a non-programmer explore embeddings, gene expression, metadata, and marker/DE tables, then share the result with a single command.
+**scPyviewer ** is a lightweight, browser-based explorer for analyzed single-cell datasets. It ingests an **AnnData** (`.h5ad`) object directly — no Seurat conversion, no notebook — and lets a non-programmer explore embeddings, gene expression, metadata, and marker/DE tables, then share the result with a single command.
 
-Every actively maintained tool in this space (ShinyCell, ScRDAVis, sCIRCLE/scViewer) is built on R Shiny and requires a Seurat object. **scviewer fills the Python/scanpy gap**: it stays entirely inside the Python stack that most single-cell analysis already runs in.
+Every actively maintained tool in this space (ShinyCell, ScRDAVis, sCIRCLE/scViewer) is built on R Shiny and requires a Seurat object. **scPyviewer fills the Python/scanpy gap**: it stays entirely inside the Python stack that most single-cell analysis already runs in.
 
 ---
 
 ## Highlights
 
-| | scviewer | ShinyCell | ScRDAVis | sCIRCLE/scViewer |
+| | scPyviewer  | ShinyCell | ScRDAVis | sCIRCLE/scViewer |
 |---|:---:|:---:|:---:|:---:|
 | Embedding plot (UMAP/PCA/t-SNE) | ✓ | ✓ | ✓ | ✓ |
 | Single/multi-gene expression overlay | ✓ | ✓ | ✓ | Partial |
