@@ -35,9 +35,12 @@ from scPyviewer import io_utils as io  # noqa: E402
 
 # --------------------------------------------------------------- style
 def _style():
+    import matplotlib.font_manager as fm
+    _arial = fm.findfont(fm.FontProperties(family="Arial"))
     mpl.rcParams.update({
         "figure.dpi": 110, "savefig.dpi": 200, "savefig.bbox": "tight",
-        "font.family": "sans-serif", "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
+        "font.family": "Arial",
+        "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
         "font.size": 8, "axes.titlesize": 8.5, "axes.labelsize": 8,
         "xtick.labelsize": 6.8, "ytick.labelsize": 6.8, "legend.fontsize": 6.5,
         "axes.spines.top": False, "axes.spines.right": False,
@@ -48,35 +51,95 @@ def _style():
 # --------------------------------------------------------------- benchmark figs
 def fig_feature_parity(bench: dict, out: str):
     cl = bench["feature_parity"]["checklist"]
-    tools = ["ShinyCell", "ScRDAVis", "sCIRCLE/scViewer", "scPyviewer"]
-    lvl = lambda v: {"Yes": 2, "Partial": 1, "No": 0}.get(v, 0)
-    feat = [c["feature"].replace(" (UMAP/PCA/t-SNE)", "").replace(" gene / DE table", " / DE table")
-            for c in cl]
-    M = np.zeros((len(cl), len(tools))); labs = np.empty_like(M, dtype=object)
+
+    # display name → JSON key (handles both scviewer and scPyviewer key names)
+    tool_labels = ["ShinyCell", "ScRDAVis", "sCIRCLE/\nscViewer", "scPyviewer"]
+    tool_keys   = ["ShinyCell", "ScRDAVis", "sCIRCLE/scViewer", None]  # None = auto-detect
+
+    lvl = {"Yes": 2, "Partial": 1, "No": 0}
+    sym = {"Yes": "●", "Partial": "~", "No": "○"}
+
+    feat_labels = []
+    for c in cl:
+        name = (c["feature"]
+                .replace(" (UMAP/PCA/t-SNE)", "")
+                .replace(" gene / DE table", " / DE table")
+                .replace("Native Python/AnnData input (no Seurat conversion)",
+                         "Native Python/AnnData input"))
+        feat_labels.append(name)
+
+    n_feat  = len(cl)
+    n_tools = len(tool_labels)
+    M    = np.zeros((n_feat, n_tools))
+    labs = np.empty_like(M, dtype=object)
+
     for i, c in enumerate(cl):
-        for j, t in enumerate(tools):
-            val = ("Yes" if c["scPyviewer"] else "No") if t == "scPyviewer" else c[t]
-            M[i, j] = lvl(val); labs[i, j] = val
-    cmap = ListedColormap(["#f0f0f0", "#fdc086", "#4d9221"])
-    fig, ax = plt.subplots(figsize=(8.2, 4.6))
+        for j, (_, key) in enumerate(zip(tool_labels, tool_keys)):
+            if key is None:
+                # scPyviewer column: try both key names
+                raw = c.get("scPyviewer", c.get("scviewer", False))
+                val = "Yes" if raw else "No"
+            else:
+                raw = c.get(key, "No")
+                val = raw if isinstance(raw, str) else ("Yes" if raw else "No")
+            M[i, j]    = lvl.get(val, 0)
+            labs[i, j] = sym.get(val, "✗")
+
+    # ── Color palette ──────────────────────────────────────────────────────────
+    palette = ["#ebebeb", "#f4a64a", "#3a9e6f"]   # No / Partial / Yes
+    cmap    = ListedColormap(palette)
+
+    cell_h  = 0.58          # inches per feature row
+    fig_h   = max(3.8, n_feat * cell_h + 1.0)
+    fig, ax = plt.subplots(figsize=(8.8, fig_h))
+
     ax.imshow(M, cmap=cmap, aspect="auto", vmin=0, vmax=2)
-    ax.set_xticks(range(len(tools))); ax.set_xticklabels(tools)
-    ax.set_yticks(range(len(cl))); ax.set_yticklabels(feat)
-    ax.add_patch(Rectangle((len(tools) - 1.5, -0.5), 1, len(cl), fill=False, edgecolor="#222", lw=2))
-    for i in range(len(cl)):
-        for j in range(len(tools)):
-            ax.text(j, i, labs[i, j], ha="center", va="center", fontsize=6,
-                    color="white" if M[i, j] == 2 else "#222")
-    ax.set_xticks(np.arange(-.5, len(tools), 1), minor=True)
-    ax.set_yticks(np.arange(-.5, len(cl), 1), minor=True)
-    ax.grid(which="minor", color="white", lw=1.5); ax.tick_params(which="minor", length=0)
-    score = bench["feature_parity"]["parity_score"]
-    # ax.set_title(f"scPyviewer reproduces all 7 baseline features (parity {score:.0%})")
-    leg = [Patch(facecolor="#4d9221", label="Yes"), Patch(facecolor="#fdc086", label="Partial"),
-           Patch(facecolor="#f0f0f0", edgecolor="#ccc", label="No / absent")]
-    ax.legend(handles=leg, loc="upper left", bbox_to_anchor=(1.01, 1.0), frameon=False)
+
+    # ── Axes labels ────────────────────────────────────────────────────────────
+    ax.set_xticks(range(n_tools))
+    ax.set_xticklabels(tool_labels, fontsize=12, linespacing=1.2)
+    ax.set_yticks(range(n_feat))
+    ax.set_yticklabels(feat_labels, fontsize=12)
+    ax.tick_params(which="major", length=0, pad=5)
+
+    # Bold + colored header for scPyviewer
+    for lbl in ax.get_xticklabels():
+        if "scPyviewer" in lbl.get_text():
+            lbl.set_fontweight("bold")
+            lbl.set_color("#1e6b41")
+
+    # ── Cell symbols ───────────────────────────────────────────────────────────
+    for i in range(n_feat):
+        for j in range(n_tools):
+            color = "white" if M[i, j] == 2 else ("#666" if M[i, j] == 1 else "#888")
+            ax.text(j, i, labs[i, j], ha="center", va="center",
+                    fontsize=10.5, color=color, fontweight="bold")
+
+    # ── Grid ───────────────────────────────────────────────────────────────────
+    ax.set_xticks(np.arange(-0.5, n_tools, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n_feat,  1), minor=True)
+    ax.grid(which="minor", color="white", lw=2.0)
+    ax.tick_params(which="minor", length=0)
+
+    # ── Highlight scPyviewer column ────────────────────────────────────────────
+    ax.add_patch(Rectangle((n_tools - 1.5, -0.5), 1, n_feat,
+                            fill=False, edgecolor="#1e6b41", lw=2.2))
+
+    # ── Spines ─────────────────────────────────────────────────────────────────
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    # ── Legend ─────────────────────────────────────────────────────────────────
+    leg = [Patch(facecolor="#3a9e6f", label="Yes"),
+           Patch(facecolor="#f4a64a", label="Partial"),
+           Patch(facecolor="#ebebeb", edgecolor="#bbb", label="No")]
+    ax.legend(handles=leg, loc="upper left", bbox_to_anchor=(1.02, 1.0),
+              frameon=False, fontsize=7.5, handlelength=1.2, handleheight=1.0)
+
     fig.tight_layout()
-    p = os.path.join(out, "fig_feature_parity.png"); fig.savefig(p); plt.close(fig)
+    p = os.path.join(out, "fig_feature_parity.png")
+    fig.savefig(p)
+    plt.close(fig)
     return p
 
 

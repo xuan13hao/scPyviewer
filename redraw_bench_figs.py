@@ -133,7 +133,7 @@ def _render_fig(rows, py_col, r_col, py_label, r_label,
 def fig_chicken_heart(rows, figdir):
     fig = _render_fig(
         rows, py_col=1, r_col=2,
-        py_label="scviewer/Python",
+        py_label="scPyviewer/Python",
         r_label="Seurat/R",
         r_estimated=False,
     )
@@ -144,7 +144,7 @@ def fig_chicken_heart(rows, figdir):
 def fig_green_monkey(rows, figdir):
     fig = _render_fig(
         rows, py_col=4, r_col=5,
-        py_label="scviewer/Python",
+        py_label="scPyviewer/Python",
         r_label="Seurat/R",
         r_estimated=True,
     )
@@ -165,7 +165,7 @@ def fig_human_lung(rows, figdir):
     stub  = xmax * 0.08   # small visible stub for OOM bar
 
     ax.barh(y + h / 2, inmem,       height=h, color=PY_C,
-            label="scviewer in-memory CSC")
+            label="scPyviewer in-memory CSC")
     ax.barh(y - h / 2, [stub] * n,  height=h, color=R_C,
             hatch="///", edgecolor=R_C,
             label="Seurat/R  → OOM  (>8 GB needed)")
@@ -236,8 +236,8 @@ def fig_load_time(meta, figdir):
     ax.set_ylabel("Dataset load time (s)", fontsize=12)
     ax.set_ylim(0, max(v for v in [*py_vals, *[v for v in r_vals if v]] if v) * 1.30)
 
-    py_p  = mpatches.Patch(color=PY_C,    label="scviewer / Python (actual)")
-    im_p  = mpatches.Patch(color=INMEM_C, label="scviewer in-memory (mean est.)")
+    py_p  = mpatches.Patch(color=PY_C,    label="scPyviewer / Python (actual)")
+    im_p  = mpatches.Patch(color=INMEM_C, label="scPyviewer in-memory (mean est.)")
     r_p   = mpatches.Patch(color=R_C,     label="Seurat / R (actual or est.)")
     oom_p = mpatches.Patch(facecolor=OOM_C, hatch="///", edgecolor="#aaa", label="Seurat / R → OOM")
     ax.legend(handles=[py_p, im_p, r_p, oom_p], frameon=False, fontsize=10, loc="upper left")
@@ -291,7 +291,7 @@ def fig_memory(meta, figdir):
     ax.set_ylabel("Peak RSS memory (MB, psutil)", fontsize=12)
     ax.set_ylim(0, MACHINE_RAM_MB * 1.32)
 
-    py_p  = mpatches.Patch(color=PY_C, label="scviewer/Python")
+    py_p  = mpatches.Patch(color=PY_C, label="scPyviewer/Python")
     r_p   = mpatches.Patch(color=R_C,  label="Seurat/R")
     oom_p = mpatches.Patch(facecolor=R_C, hatch="///", edgecolor=R_C, alpha=0.4,
                            label="Seurat/R → OOM")

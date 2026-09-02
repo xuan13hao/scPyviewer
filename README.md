@@ -277,21 +277,23 @@ paper/                        manuscript
 
 ---
 
-<!-- ## Citation
+## Citation
 
 If you use scPyviewer in your research, please cite:
 
 ```bibtex
-@article{scPyviewer2026,
-  title   = {scPyviewer: a Python-native interactive viewer for single-cell data},
-  author  = {...},
-  journal = {...},
-  year    = {2026},
-  doi     = {...}
+@article{Xuan2026.08.26.747418,
+  author    = {Xuan, Hao and Huang, Yu and Bian, Jiang and Liu, Xiangtao},
+  title     = {scPyviewer: a Python-native interactive viewer from AnnData single-cell data},
+  year      = {2026},
+  doi       = {10.64898/2026.08.26.747418},
+  publisher = {Cold Spring Harbor Laboratory},
+  journal   = {bioRxiv},
+  URL       = {https://www.biorxiv.org/content/early/2026/08/31/2026.08.26.747418}
 }
 ```
 
---- -->
+---
 
 ## License
 
