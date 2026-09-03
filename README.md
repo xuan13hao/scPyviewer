@@ -148,19 +148,49 @@ sv.export_figures(ds, "out/figs",   formats=["png", "pdf", "svg"])
 sv.export_tables(ds,  "out/tables", formats=["csv", "tsv", "xlsx"])
 ```
 
-### API parameter reference (v0.2.0)
+### Global style (v0.3.0+)
 
-All plotting functions accept additional style parameters beyond the defaults:
+```python
+sv.set_style(font_family="Arial", base_fontsize=11, dpi=300)
+# applies to all subsequent plot_* calls in the session
+```
+
+### API parameter reference (v0.3.0)
+
+All plotting functions expose full typography and layout controls for
+publication-quality figures.
+
+| Parameter | Type | Applies to | Description |
+|---|---|---|---|
+| `figsize` | `(float, float)` | all | Figure `(width, height)` in inches |
+| `dpi` | `int` | all | Resolution (dots per inch) |
+| `title` | `str` | all | Override auto-generated title |
+| `title_fontsize` | `float` | all | Title font size |
+| `xlabel` / `ylabel` | `str` | violin, dotplot, composition | Axis label overrides |
+| `xlabel_fontsize` / `ylabel_fontsize` | `float` | violin, dotplot, composition | Axis label font sizes |
+| `tick_fontsize` | `float` | all | Tick-label font size |
+| `legend_fontsize` | `float` | embedding, dotplot, composition | Legend entry font size |
+| `legend_title_fontsize` | `float` | embedding, dotplot, composition | Legend title font size |
+| `colorbar_fontsize` | `float` | embedding (gene), multigene, dotplot | Colorbar text size |
+| `label_fontsize` | `float` | embedding | Centroid group label size |
+| `panel_title_fontsize` | `float` | multigene | Per-panel gene title size |
+| `suptitle_fontsize` | `float` | multigene | Figure super-title size |
+| `gene_label_rotation` | `int` | dotplot | X-axis gene label rotation (°) |
+| `rotation` | `int` | violin, composition | X-tick label rotation (°) |
+| `font_family` | `str` | all | Per-figure font family override |
+
+**Per-function quick reference:**
 
 | Function | Key parameters |
 |---|---|
-| `plot_embedding` | `color`, `gene`, `embedding`, `point_size`, `figsize`, `label_groups`, `cmap`, `alpha`, `title`, `dpi`, `show_legend` |
-| `plot_multigene` | `genes`, `embedding`, `ncol`, `point_size`, `cmap`, `alpha`, `max_genes` |
-| `plot_violin` | `gene`, `group`, `figsize`, `kind` (`"violin"` / `"box"`), `palette`, `rotation`, `show_points` |
-| `plot_dotplot` | `genes`, `group`, `cmap`, `size_scale`, `standard_scale` (`None` / `"var"` / `"group"`) |
-| `plot_composition` | `group`, `split`, `normalize`, `figsize`, `palette`, `bar_width`, `sort_groups` |
+| `set_style` | `font_family`, `base_fontsize`, `dpi`, `style` |
+| `plot_embedding` | `color`, `gene`, `embedding`, `point_size`, `alpha`, `cmap`, `label_groups`, `show_legend` + all typography params |
+| `plot_multigene` | `genes`, `ncol`, `max_genes`, `point_size`, `cmap`, `alpha` + all typography params |
+| `plot_violin` | `gene`, `group`, `kind` (`"violin"`/`"box"`), `palette`, `show_points` + all typography params |
+| `plot_dotplot` | `genes`, `group`, `cmap`, `size_scale`, `standard_scale` (`None`/`"var"`/`"group"`) + all typography params |
+| `plot_composition` | `group`, `split`, `normalize`, `palette`, `bar_width`, `sort_groups` + all typography params |
 | `markers_table` | `group`, `top_n`, `sort_by`, `ascending` |
-| `export_figures` | `outdir`, `formats`, `genes`, `dpi` |
+| `export_figures` | `outdir`, `formats`, `genes`, `dpi`, `figsize`, `title_fontsize`, `tick_fontsize`, `label_fontsize`, `font_family` |
 | `export_tables` | `outdir`, `formats`, `top_n` |
 
 Run `./run.sh api-demo` for a worked end-to-end example → `results/api_demo/`.

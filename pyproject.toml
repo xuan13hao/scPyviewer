@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scPyviewer"
-version = "0.2.1"
+version = "0.3.0"
 description = "Python-native interactive viewer and programmatic API for single-cell AnnData (.h5ad) objects"
 readme = "README.md"
 requires-python = ">=3.10"

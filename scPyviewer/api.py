@@ -1,26 +1,36 @@
-"""scPyviewer.api — a public, programmatic interface to scPyviewer.
+"""scPyviewer.api — public programmatic interface to scPyviewer.
 
-This module exposes the same views the interactive Streamlit app offers as
-plain Python functions that **return objects** (matplotlib ``Figure`` and pandas
-``DataFrame``) and helpers that **write files** (figures and tables). It lets a
-scanpy user drive scPyviewer from a script or notebook without launching the UI::
+Every ``plot_*`` function returns a :class:`matplotlib.figure.Figure`; every
+``*_table`` function returns a :class:`pandas.DataFrame`. All plotting
+functions expose fine-grained typography and layout controls so that
+publication-quality figures can be produced without post-processing::
 
     import scPyviewer as sv
 
     ds = sv.load_dataset("data/chicken_heart.prepared.h5ad")
-    fig = sv.plot_embedding(ds, color=ds.group_key)      # matplotlib Figure
-    fig.savefig("umap.png", dpi=200)
 
-    markers = sv.markers_table(ds)                        # pandas DataFrame
-    sv.export_figures(ds, "out/figs")                     # writes png + pdf
-    sv.export_tables(ds, "out/tables")                    # writes csv
+    # quick look
+    fig = sv.plot_embedding(ds, color=ds.group_key)
 
-The plotting functions here render with matplotlib for reliable static export
-(PNG/PDF/SVG) with no extra system dependencies. The interactive Plotly views
-used by the Streamlit app live in :mod:`scPyviewer.plots`.
+    # publication-quality
+    fig = sv.plot_embedding(
+        ds, color=ds.group_key,
+        figsize=(6, 5), dpi=300,
+        title="Cell types — chicken heart",
+        title_fontsize=14,
+        label_fontsize=9,
+        legend_fontsize=9,
+        font_family="Arial",
+    )
+    fig.savefig("fig1.pdf", bbox_inches="tight")
+
+Global style (applies to all subsequent plots in the session)::
+
+    sv.set_style(font_family="Helvetica", base_fontsize=11, dpi=300)
 """
 from __future__ import annotations
 
+import contextlib
 import os
 from dataclasses import dataclass
 from typing import Any
@@ -28,7 +38,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")  # safe for headless / script use
+matplotlib.use("Agg")
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -40,6 +50,55 @@ mpl.rcParams.update({
 from . import io_utils as io
 
 
+# ------------------------------------------------------------------ style
+@contextlib.contextmanager
+def _font_ctx(family: str | None):
+    """Temporarily switch font family inside a with-block."""
+    if family:
+        prev = mpl.rcParams.get("font.family", "sans-serif")
+        mpl.rcParams["font.family"] = family
+        try:
+            yield
+        finally:
+            mpl.rcParams["font.family"] = prev
+    else:
+        yield
+
+
+def set_style(
+    font_family: str | None = None,
+    base_fontsize: float | None = None,
+    dpi: int | None = None,
+    style: str | None = None,
+) -> None:
+    """Set global matplotlib defaults for all subsequent ``plot_*`` calls.
+
+    Parameters
+    ----------
+    font_family : str, optional
+        Font family name, e.g. ``"Arial"``, ``"Helvetica"``, ``"Times New Roman"``.
+    base_fontsize : float, optional
+        Base font size in points. Sets ``font.size`` in rcParams.
+    dpi : int, optional
+        Default figure resolution (dots per inch).
+    style : str, optional
+        Matplotlib style sheet, e.g. ``"seaborn-v0_8-whitegrid"``, ``"ggplot"``.
+        Passed to :func:`matplotlib.pyplot.style.use`.
+
+    Examples
+    --------
+    >>> sv.set_style(font_family="Arial", base_fontsize=11, dpi=300)
+    """
+    if style is not None:
+        plt.style.use(style)
+    if font_family is not None:
+        mpl.rcParams["font.family"] = font_family
+    if base_fontsize is not None:
+        mpl.rcParams["font.size"] = base_fontsize
+    if dpi is not None:
+        mpl.rcParams["figure.dpi"] = dpi
+
+
 # ------------------------------------------------------------------ handle
 @dataclass
 class Dataset:
@@ -48,15 +107,10 @@ class Dataset:
     Attributes
     ----------
     adata : AnnData
-        The underlying AnnData object.
     path : str
-        Source ``.h5ad`` path.
     group_key : str
-        Auto-selected primary grouping column (e.g. ``cell_type``).
     embeddings : list[str]
-        Available 2-D embedding keys in ``obsm`` (e.g. ``X_umap``).
     categorical : list[str]
-        Categorical ``obs`` columns available for grouping/splitting.
     """
     adata: Any
     path: str
@@ -76,7 +130,7 @@ class Dataset:
         """Search gene names (substring, case-insensitive)."""
         return io.gene_search(self.adata, query, limit=limit)
 
-    def __repr__(self) -> str:  # pragma: no cover - cosmetic
+    def __repr__(self) -> str:  # pragma: no cover
         return (f"Dataset({os.path.basename(self.path)}: "
                 f"{self.n_obs:,} cells x {self.n_vars:,} genes, "
                 f"group_key={self.group_key!r})")
@@ -88,8 +142,8 @@ def load_dataset(path: str) -> Dataset:
     Parameters
     ----------
     path : str
-        Path to a ``*.prepared.h5ad`` (or any AnnData; run
-        :mod:`scPyviewer.prepare` first for full functionality).
+        Path to a ``*.prepared.h5ad``. Run :mod:`scPyviewer.prepare` first
+        for full functionality.
     """
     adata = io.load_adata(path)
     meta = io.get_meta(adata)
@@ -126,82 +180,132 @@ def plot_embedding(
     color: str | None = None,
     gene: str | None = None,
     embedding: str | None = None,
-    point_size: float = 3.0,
+    # layout
     figsize: tuple = (7.4, 5.6),
-    label_groups: bool = True,
-    cmap: str = "viridis",
-    alpha: float = 0.75,
-    title: str | None = None,
     dpi: int = 150,
+    # scatter
+    point_size: float = 3.0,
+    alpha: float = 0.75,
+    cmap: str = "viridis",
+    # labels & legend
+    title: str | None = None,
+    title_fontsize: float = 11,
+    label_groups: bool = True,
+    label_fontsize: float = 6,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    xlabel_fontsize: float = 9,
+    ylabel_fontsize: float = 9,
+    tick_fontsize: float = 8,
     show_legend: bool = True,
+    legend_fontsize: float = 7,
+    legend_title: str | None = None,
+    legend_title_fontsize: float = 8,
+    # colorbar (gene mode)
+    colorbar_label: str | None = None,
+    colorbar_fontsize: float = 8,
+    # style
+    font_family: str | None = None,
 ):
-    """Scatter of a 2-D embedding, colored by a metadata column or a gene.
-
-    Exactly one of ``color`` (an ``obs`` column) or ``gene`` should be given.
-    If neither is given, colors by ``ds.group_key``. Returns a matplotlib
-    ``Figure``.
+    """Scatter of a 2-D embedding colored by a metadata column or a gene.
 
     Parameters
     ----------
     color : str, optional
-        ``obs`` column name to color by (categorical or numeric).
+        ``obs`` column name (categorical or numeric).
     gene : str, optional
-        Gene name whose log-normalized expression drives the color scale.
+        Gene name; expression drives the color scale.
     embedding : str, optional
         Embedding key in ``obsm`` (e.g. ``"X_umap"``). Auto-selected if None.
+    figsize : tuple
+        Figure ``(width, height)`` in inches.
+    dpi : int
+        Figure resolution (dots per inch).
     point_size : float
         Scatter point diameter in points.
-    figsize : tuple
-        Figure (width, height) in inches.
-    label_groups : bool
-        Overlay group-centroid text labels when coloring by category.
-    cmap : str
-        Matplotlib colormap name for continuous/gene coloring.
     alpha : float
-        Point transparency (0–1) for categorical scatter.
+        Point transparency (0–1) for categorical coloring.
+    cmap : str
+        Matplotlib colormap for continuous / gene coloring.
     title : str, optional
-        Override the auto-generated figure title.
-    dpi : int
-        Dots-per-inch resolution of the figure.
+        Override the auto-generated title.
+    title_fontsize : float
+        Font size of the figure title.
+    label_groups : bool
+        Overlay centroid text labels when coloring by category.
+    label_fontsize : float
+        Font size of centroid group labels.
+    xlabel / ylabel : str, optional
+        Override axis labels (default: embedding axis name).
+    xlabel_fontsize / ylabel_fontsize : float
+        Axis-label font sizes.
+    tick_fontsize : float
+        Tick-label font size.
     show_legend : bool
-        Show legend when coloring by a categorical field without centroid labels.
+        Show legend for categorical coloring when ``label_groups=False``.
+    legend_fontsize : float
+        Legend entry font size.
+    legend_title : str, optional
+        Override legend title.
+    legend_title_fontsize : float
+        Legend title font size.
+    colorbar_label : str, optional
+        Override colorbar label in gene mode.
+    colorbar_fontsize : float
+        Colorbar label and tick font size.
+    font_family : str, optional
+        Font family for this figure only (e.g. ``"Arial"``).
     """
     key = _resolve_embedding(ds, embedding)
     xy = io.embedding_2d(ds.adata, key)
     lab = _emb_label(key)
-    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
-    if gene is not None:
-        expr = io.gene_vector(ds.adata, gene, "lognorm")
-        o = np.argsort(expr)
-        sc = ax.scatter(xy[o, 0], xy[o, 1], c=expr[o], s=point_size, cmap=cmap,
-                        linewidths=0, rasterized=True)
-        cb = fig.colorbar(sc, ax=ax, fraction=0.046, pad=0.02)
-        cb.set_label("log-normalized expression", fontsize=8)
-        ax.set_title(title or f"{gene} expression ({lab})", fontsize=9, style="italic")
-    else:
-        field = color or ds.group_key
-        cats = list(ds.adata.obs[field].astype("category").cat.categories)
-        cmap_dict = io.category_colors(ds.adata, field) or {}
-        for c in cats:
-            m = (ds.adata.obs[field].astype(str) == c).values
-            ax.scatter(xy[m, 0], xy[m, 1], s=point_size, alpha=alpha,
-                       color=cmap_dict.get(c, None), label=c, linewidths=0,
-                       rasterized=True)
-            if label_groups:
-                cx, cy = xy[m, 0].mean(), xy[m, 1].mean()
-                ax.text(cx, cy, c, fontsize=5.6, ha="center", va="center",
-                        bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none",
-                                  alpha=0.68))
-        ax.set_title(title or f"{field} ({lab}, {ds.n_obs:,} cells)", fontsize=9)
-        if show_legend and not label_groups:
-            ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0),
-                      frameon=False, fontsize=5.8)
+    with _font_ctx(font_family):
+        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
-    ax.set_xticks([]); ax.set_yticks([])
-    for s in ax.spines.values():
-        s.set_visible(False)
-    fig.tight_layout()
+        if gene is not None:
+            expr = io.gene_vector(ds.adata, gene, "lognorm")
+            o = np.argsort(expr)
+            sc = ax.scatter(xy[o, 0], xy[o, 1], c=expr[o], s=point_size,
+                            cmap=cmap, linewidths=0, rasterized=True)
+            cb = fig.colorbar(sc, ax=ax, fraction=0.046, pad=0.02)
+            cb.set_label(colorbar_label or "log-norm expression",
+                         fontsize=colorbar_fontsize)
+            cb.ax.tick_params(labelsize=colorbar_fontsize - 1)
+            ax.set_title(title or f"{gene} expression ({lab})",
+                         fontsize=title_fontsize, style="italic")
+        else:
+            field = color or ds.group_key
+            cats = list(ds.adata.obs[field].astype("category").cat.categories)
+            cmap_dict = io.category_colors(ds.adata, field) or {}
+            for c in cats:
+                m = (ds.adata.obs[field].astype(str) == c).values
+                ax.scatter(xy[m, 0], xy[m, 1], s=point_size, alpha=alpha,
+                           color=cmap_dict.get(c, None), label=c,
+                           linewidths=0, rasterized=True)
+                if label_groups:
+                    cx, cy = xy[m, 0].mean(), xy[m, 1].mean()
+                    ax.text(cx, cy, c, fontsize=label_fontsize,
+                            ha="center", va="center",
+                            bbox=dict(boxstyle="round,pad=0.12",
+                                      fc="white", ec="none", alpha=0.68))
+            ax.set_title(title or f"{field} ({lab}, {ds.n_obs:,} cells)",
+                         fontsize=title_fontsize)
+            if show_legend and not label_groups:
+                leg = ax.legend(
+                    title=legend_title or field,
+                    loc="upper left", bbox_to_anchor=(1.01, 1.0),
+                    frameon=False, fontsize=legend_fontsize,
+                    title_fontsize=legend_title_fontsize,
+                )
+
+        ax.set_xlabel(xlabel or f"{lab}1", fontsize=xlabel_fontsize)
+        ax.set_ylabel(ylabel or f"{lab}2", fontsize=ylabel_fontsize)
+        ax.tick_params(labelsize=tick_fontsize)
+        ax.set_xticks([]); ax.set_yticks([])
+        for s in ax.spines.values():
+            s.set_visible(False)
+        fig.tight_layout()
     return fig
 
 
@@ -209,30 +313,55 @@ def plot_multigene(
     ds: Dataset,
     genes: list,
     embedding: str | None = None,
+    # layout
     ncol: int = 3,
+    figsize: tuple | None = None,
+    dpi: int = 150,
+    # scatter
     point_size: float = 2.5,
     cmap: str = "viridis",
     alpha: float = 0.8,
     max_genes: int = 12,
+    # labels
+    suptitle: str | None = None,
+    suptitle_fontsize: float = 10,
+    panel_title_fontsize: float = 8,
+    colorbar_fontsize: float = 6,
+    # style
+    font_family: str | None = None,
 ):
-    """Grid of embedding scatters, one panel per gene. Returns a Figure.
+    """Grid of embedding scatters, one panel per gene.
 
     Parameters
     ----------
     genes : list[str]
-        Gene names to plot. Filtered to those present in the dataset.
+        Gene names to plot.
     embedding : str, optional
         Embedding key (auto-selected if None).
     ncol : int
         Number of columns in the grid.
+    figsize : tuple, optional
+        Figure ``(width, height)`` in inches. Auto-computed from ncol/nrow if None.
+    dpi : int
+        Figure resolution.
     point_size : float
-        Scatter point diameter in points.
+        Scatter point size.
     cmap : str
-        Matplotlib colormap for expression coloring.
+        Colormap for expression values.
     alpha : float
         Point transparency (0–1).
     max_genes : int
-        Hard cap on the number of genes shown (default 12).
+        Hard cap on number of panels shown.
+    suptitle : str, optional
+        Override the figure super-title.
+    suptitle_fontsize : float
+        Font size of the figure super-title.
+    panel_title_fontsize : float
+        Font size of each panel's gene-name title.
+    colorbar_fontsize : float
+        Colorbar tick and label font size.
+    font_family : str, optional
+        Font family for this figure only.
     """
     genes = [g for g in genes if g in ds.adata.var_names][:max_genes]
     if not genes:
@@ -240,25 +369,32 @@ def plot_multigene(
     key = _resolve_embedding(ds, embedding)
     xy = io.embedding_2d(ds.adata, key)
     nrow = int(np.ceil(len(genes) / ncol))
-    fig, axes = plt.subplots(nrow, ncol, figsize=(3.0 * ncol, 2.8 * nrow))
-    axes = np.array(axes).reshape(-1)
-    for i, g in enumerate(genes):
-        ax = axes[i]
-        expr = io.gene_vector(ds.adata, g, "lognorm")
-        o = np.argsort(expr)
-        sc = ax.scatter(xy[o, 0], xy[o, 1], c=expr[o], s=point_size, cmap=cmap,
-                        alpha=alpha, linewidths=0, rasterized=True)
-        ax.set_title(g, fontsize=8, style="italic")
-        ax.set_xticks([]); ax.set_yticks([])
-        for s in ax.spines.values():
-            s.set_visible(False)
-        cb = fig.colorbar(sc, ax=ax, fraction=0.046, pad=0.02)
-        cb.ax.tick_params(labelsize=5.5); cb.set_label("expr", fontsize=6)
-    for j in range(len(genes), len(axes)):
-        axes[j].set_visible(False)
-    fig.suptitle(f"Gene expression on the {_emb_label(key)} embedding",
-                 x=0.02, ha="left", fontsize=9)
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
+    auto_size = (3.0 * ncol, 2.8 * nrow)
+    fs = figsize if figsize is not None else auto_size
+
+    with _font_ctx(font_family):
+        fig, axes = plt.subplots(nrow, ncol, figsize=fs, dpi=dpi)
+        axes = np.array(axes).reshape(-1)
+        for i, g in enumerate(genes):
+            ax = axes[i]
+            expr = io.gene_vector(ds.adata, g, "lognorm")
+            o = np.argsort(expr)
+            sc = ax.scatter(xy[o, 0], xy[o, 1], c=expr[o], s=point_size,
+                            cmap=cmap, alpha=alpha, linewidths=0, rasterized=True)
+            ax.set_title(g, fontsize=panel_title_fontsize, style="italic")
+            ax.set_xticks([]); ax.set_yticks([])
+            for s in ax.spines.values():
+                s.set_visible(False)
+            cb = fig.colorbar(sc, ax=ax, fraction=0.046, pad=0.02)
+            cb.ax.tick_params(labelsize=colorbar_fontsize - 0.5)
+            cb.set_label("expr", fontsize=colorbar_fontsize)
+        for j in range(len(genes), len(axes)):
+            axes[j].set_visible(False)
+        fig.suptitle(
+            suptitle or f"Gene expression — {_emb_label(key)}",
+            x=0.02, ha="left", fontsize=suptitle_fontsize,
+        )
+        fig.tight_layout(rect=[0, 0, 1, 0.97])
     return fig
 
 
@@ -266,34 +402,56 @@ def plot_violin(
     ds: Dataset,
     gene: str,
     group: str | None = None,
+    # layout
     figsize: tuple = (7.0, 4.0),
+    dpi: int = 150,
+    # style
     kind: str = "violin",
     palette: dict | None = None,
     rotation: int = 30,
     show_points: bool = False,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 11,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    xlabel_fontsize: float = 9,
+    ylabel_fontsize: float = 9,
+    tick_fontsize: float = 8,
+    font_family: str | None = None,
 ):
     """Violin or box plot of a gene's expression grouped by a metadata column.
-
-    Returns a matplotlib ``Figure``.
 
     Parameters
     ----------
     gene : str
-        Gene name whose expression to plot.
+        Gene name.
     group : str, optional
-        ``obs`` column for grouping (defaults to ``ds.group_key``).
+        ``obs`` grouping column (defaults to ``ds.group_key``).
     figsize : tuple
-        Figure (width, height) in inches.
+        Figure ``(width, height)`` in inches.
+    dpi : int
+        Figure resolution.
     kind : {"violin", "box"}
-        Plot type. ``"violin"`` shows the full distribution; ``"box"`` shows
-        quartiles and whiskers.
+        Plot type.
     palette : dict, optional
-        ``{group_label: color}`` override. Falls back to dataset palette then
-        a default green.
+        ``{label: color}`` override.
     rotation : int
-        X-axis tick-label rotation in degrees.
+        X-tick label rotation in degrees.
     show_points : bool
-        Overlay individual data points as a jittered strip plot.
+        Overlay jittered individual data points.
+    title : str, optional
+        Override figure title.
+    title_fontsize : float
+        Title font size.
+    xlabel / ylabel : str, optional
+        Axis label overrides.
+    xlabel_fontsize / ylabel_fontsize : float
+        Axis label font sizes.
+    tick_fontsize : float
+        Tick-label font size.
+    font_family : str, optional
+        Font family for this figure only.
     """
     if kind not in ("violin", "box"):
         raise ValueError(f"kind must be 'violin' or 'box', got {kind!r}")
@@ -305,32 +463,39 @@ def plot_violin(
     cmap_dict = palette or io.category_colors(ds.adata, field) or {}
     colors = [cmap_dict.get(s, "#4d9221") for s in order]
 
-    fig, ax = plt.subplots(figsize=figsize)
+    with _font_ctx(font_family):
+        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
-    if kind == "violin":
-        parts = ax.violinplot(data, showmeans=True, showextrema=False, widths=0.85)
-        for i, b in enumerate(parts["bodies"]):
-            b.set_facecolor(colors[i]); b.set_alpha(0.8); b.set_edgecolor("none")
-        parts["cmeans"].set_color("#222"); parts["cmeans"].set_linewidth(1.0)
-    else:
-        bp = ax.boxplot(data, patch_artist=True, medianprops=dict(color="#222", lw=1.5),
-                        whiskerprops=dict(lw=0.8), capprops=dict(lw=0.8),
-                        flierprops=dict(marker=".", ms=2, alpha=0.4))
-        for patch, color in zip(bp["boxes"], colors):
-            patch.set_facecolor(color); patch.set_alpha(0.8)
+        if kind == "violin":
+            parts = ax.violinplot(data, showmeans=True, showextrema=False,
+                                  widths=0.85)
+            for i, b in enumerate(parts["bodies"]):
+                b.set_facecolor(colors[i]); b.set_alpha(0.8); b.set_edgecolor("none")
+            parts["cmeans"].set_color("#222"); parts["cmeans"].set_linewidth(1.0)
+        else:
+            bp = ax.boxplot(data, patch_artist=True,
+                            medianprops=dict(color="#222", lw=1.5),
+                            whiskerprops=dict(lw=0.8), capprops=dict(lw=0.8),
+                            flierprops=dict(marker=".", ms=2, alpha=0.4))
+            for patch, color in zip(bp["boxes"], colors):
+                patch.set_facecolor(color); patch.set_alpha(0.8)
 
-    if show_points:
-        rng = np.random.default_rng(0)
-        for i, vals in enumerate(data):
-            jitter = rng.uniform(-0.15, 0.15, len(vals))
-            ax.scatter(np.full(len(vals), i + 1) + jitter, vals,
-                       s=1.5, alpha=0.3, color=colors[i], linewidths=0)
+        if show_points:
+            rng = np.random.default_rng(0)
+            for i, vals in enumerate(data):
+                jitter = rng.uniform(-0.15, 0.15, len(vals))
+                ax.scatter(np.full(len(vals), i + 1) + jitter, vals,
+                           s=1.5, alpha=0.3, color=colors[i], linewidths=0)
 
-    ax.set_xticks(range(1, len(order) + 1))
-    ax.set_xticklabels(order, rotation=rotation, ha="right")
-    ax.set_ylabel("log-normalized expression")
-    ax.set_title(f"{gene} by {field}", fontsize=8.5)
-    fig.tight_layout()
+        ax.set_xticks(range(1, len(order) + 1))
+        ax.set_xticklabels(order, rotation=rotation, ha="right",
+                           fontsize=tick_fontsize)
+        ax.tick_params(axis="y", labelsize=tick_fontsize)
+        ax.set_xlabel(xlabel or field, fontsize=xlabel_fontsize)
+        ax.set_ylabel(ylabel or "log-normalized expression",
+                      fontsize=ylabel_fontsize)
+        ax.set_title(title or f"{gene} by {field}", fontsize=title_fontsize)
+        fig.tight_layout()
     return fig
 
 
@@ -338,27 +503,69 @@ def plot_dotplot(
     ds: Dataset,
     genes: list,
     group: str | None = None,
+    # layout
+    figsize: tuple | None = None,
+    dpi: int = 150,
+    # rendering
     cmap: str = "viridis",
     size_scale: float = 180,
     standard_scale: str | None = None,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 11,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    xlabel_fontsize: float = 8,
+    ylabel_fontsize: float = 8,
+    tick_fontsize: float = 7,
+    legend_fontsize: float = 6,
+    legend_title_fontsize: float = 6,
+    colorbar_label: str | None = None,
+    colorbar_fontsize: float = 7,
+    gene_label_rotation: int = 45,
+    font_family: str | None = None,
 ):
-    """Dot plot (mean expression + fraction expressing) of genes across groups.
-
-    Returns a matplotlib ``Figure``.
+    """Dot plot: mean expression × fraction expressing across groups.
 
     Parameters
     ----------
     genes : list[str]
-        Genes to show as columns. Filtered to those present in the dataset.
+        Genes to show as columns.
     group : str, optional
-        ``obs`` column for row grouping (defaults to ``ds.group_key``).
+        ``obs`` row-grouping column (defaults to ``ds.group_key``).
+    figsize : tuple, optional
+        Figure ``(width, height)`` in inches. Auto-computed if None.
+    dpi : int
+        Figure resolution.
     cmap : str
-        Matplotlib colormap for mean expression coloring.
+        Colormap for mean expression.
     size_scale : float
-        Maximum dot area in points² (fraction-expressing scales 0→this value).
+        Maximum dot area in points² (fraction-expressing scales 0→this).
     standard_scale : {None, "var", "group"}
-        Normalize mean expression within genes (``"var"``) or within groups
-        (``"group"``) to [0, 1] before coloring. ``None`` uses raw log-norm values.
+        Normalize mean expression within genes (``"var"``) or groups
+        (``"group"``). ``None`` uses raw log-norm values.
+    title : str, optional
+        Override figure title.
+    title_fontsize : float
+        Title font size.
+    xlabel / ylabel : str, optional
+        Axis label overrides.
+    xlabel_fontsize / ylabel_fontsize : float
+        Axis label font sizes.
+    tick_fontsize : float
+        Tick-label font size.
+    legend_fontsize : float
+        Dot-size legend font size.
+    legend_title_fontsize : float
+        Dot-size legend title font size.
+    colorbar_label : str, optional
+        Override colorbar label.
+    colorbar_fontsize : float
+        Colorbar label and tick font size.
+    gene_label_rotation : int
+        X-axis gene label rotation in degrees.
+    font_family : str, optional
+        Font family for this figure only.
     """
     from scipy import sparse as sp
     field = _group(ds, group)
@@ -383,32 +590,51 @@ def plot_dotplot(
 
     if standard_scale == "var":
         mn, mx = means.min(axis=0), means.max(axis=0)
-        rng = np.where(mx - mn > 0, mx - mn, 1.0)
-        means = (means - mn) / rng
+        r = np.where(mx - mn > 0, mx - mn, 1.0)
+        means = (means - mn) / r
     elif standard_scale == "group":
         mn = means.min(axis=1, keepdims=True)
         mx = means.max(axis=1, keepdims=True)
-        rng = np.where(mx - mn > 0, mx - mn, 1.0)
-        means = (means - mn) / rng
+        r = np.where(mx - mn > 0, mx - mn, 1.0)
+        means = (means - mn) / r
 
-    fig, ax = plt.subplots(figsize=(0.7 * len(genes) + 2.5, 0.4 * len(cats) + 1.5))
-    X, Y = np.meshgrid(np.arange(len(genes)), np.arange(len(cats)))
-    sizes = (fracs.ravel() * size_scale) + 5
-    sc = ax.scatter(X.ravel(), Y.ravel(), s=sizes, c=means.ravel(),
-                    cmap=cmap, linewidths=0.3, edgecolors="#444")
-    ax.set_xticks(range(len(genes))); ax.set_xticklabels(genes, rotation=45,
-                                                         ha="right", style="italic")
-    ax.set_yticks(range(len(cats))); ax.set_yticklabels(cats, fontsize=7)
-    scale_label = f" (scaled by {standard_scale})" if standard_scale else ""
-    ax.set_title(f"Marker dot plot by {field}{scale_label}", fontsize=8.5)
-    ax.invert_yaxis()
-    cb = fig.colorbar(sc, ax=ax, fraction=0.03, pad=0.02)
-    cb.set_label("mean expr", fontsize=7)
-    for f, lbl in [(0.25, "25%"), (0.5, "50%"), (1.0, "100%")]:
-        ax.scatter([], [], s=f * size_scale + 5, c="grey", label=lbl)
-    ax.legend(title="% expressing", loc="upper left", bbox_to_anchor=(1.12, 1.0),
-              frameon=False, fontsize=6, title_fontsize=6)
-    fig.tight_layout()
+    auto_size = (0.7 * len(genes) + 2.5, 0.4 * len(cats) + 1.5)
+    fs = figsize if figsize is not None else auto_size
+
+    with _font_ctx(font_family):
+        fig, ax = plt.subplots(figsize=fs, dpi=dpi)
+        X, Y = np.meshgrid(np.arange(len(genes)), np.arange(len(cats)))
+        sizes = (fracs.ravel() * size_scale) + 5
+        sc = ax.scatter(X.ravel(), Y.ravel(), s=sizes, c=means.ravel(),
+                        cmap=cmap, linewidths=0.3, edgecolors="#444")
+
+        ax.set_xticks(range(len(genes)))
+        ax.set_xticklabels(genes, rotation=gene_label_rotation, ha="right",
+                           style="italic", fontsize=tick_fontsize)
+        ax.set_yticks(range(len(cats)))
+        ax.set_yticklabels(cats, fontsize=tick_fontsize)
+        ax.tick_params(labelsize=tick_fontsize)
+
+        scale_label = f" (scaled by {standard_scale})" if standard_scale else ""
+        ax.set_title(title or f"Dot plot — {field}{scale_label}",
+                     fontsize=title_fontsize)
+        ax.set_xlabel(xlabel or "Gene", fontsize=xlabel_fontsize)
+        ax.set_ylabel(ylabel or field, fontsize=ylabel_fontsize)
+        ax.invert_yaxis()
+
+        cb = fig.colorbar(sc, ax=ax, fraction=0.03, pad=0.02)
+        cb.set_label(colorbar_label or "mean expr", fontsize=colorbar_fontsize)
+        cb.ax.tick_params(labelsize=colorbar_fontsize - 1)
+
+        for f, lbl in [(0.25, "25%"), (0.5, "50%"), (1.0, "100%")]:
+            ax.scatter([], [], s=f * size_scale + 5, c="grey", label=lbl)
+        ax.legend(
+            title="% expressing",
+            loc="upper left", bbox_to_anchor=(1.12, 1.0),
+            frameon=False, fontsize=legend_fontsize,
+            title_fontsize=legend_title_fontsize,
+        )
+        fig.tight_layout()
     return fig
 
 
@@ -416,33 +642,65 @@ def plot_composition(
     ds: Dataset,
     group: str | None = None,
     split: str | None = None,
-    normalize: bool = True,
+    # layout
     figsize: tuple = (7.6, 4.4),
+    dpi: int = 150,
+    # rendering
+    normalize: bool = True,
     palette: dict | None = None,
     bar_width: float = 0.8,
     sort_groups: bool = False,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 11,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    xlabel_fontsize: float = 9,
+    ylabel_fontsize: float = 9,
+    tick_fontsize: float = 8,
+    rotation: int = 30,
+    legend_fontsize: float = 6,
+    legend_title_fontsize: float = 7,
+    font_family: str | None = None,
 ):
     """Stacked bar of ``group`` composition across ``split`` categories.
-
-    Returns a matplotlib ``Figure``.
 
     Parameters
     ----------
     group : str, optional
-        The cell-type / cluster column (defaults to ``ds.group_key``).
+        Cell-type / cluster column (defaults to ``ds.group_key``).
     split : str, optional
-        The sample / condition column to split bars by. Auto-selected if None.
-    normalize : bool
-        Show fractions (True) or raw cell counts (False).
+        Sample / condition column to split bars by. Auto-selected if None.
     figsize : tuple
-        Figure (width, height) in inches.
+        Figure ``(width, height)`` in inches.
+    dpi : int
+        Figure resolution.
+    normalize : bool
+        Show fractions (True) or raw counts (False).
     palette : dict, optional
-        ``{group_label: color}`` override. Falls back to dataset palette.
+        ``{label: color}`` override.
     bar_width : float
-        Width of each bar (0–1).
+        Bar width (0–1).
     sort_groups : bool
-        Sort the stacked groups alphabetically (default False preserves
-        category order from the AnnData object).
+        Sort stacked groups alphabetically.
+    title : str, optional
+        Override figure title.
+    title_fontsize : float
+        Title font size.
+    xlabel / ylabel : str, optional
+        Axis label overrides.
+    xlabel_fontsize / ylabel_fontsize : float
+        Axis label font sizes.
+    tick_fontsize : float
+        Tick-label font size.
+    rotation : int
+        X-tick label rotation in degrees.
+    legend_fontsize : float
+        Legend entry font size.
+    legend_title_fontsize : float
+        Legend title font size.
+    font_family : str, optional
+        Font family for this figure only.
     """
     gk = _group(ds, group)
     if split is None:
@@ -456,19 +714,33 @@ def plot_composition(
         cats = list(ds.adata.obs[gk].astype("category").cat.categories)
     frac = frac[[c for c in cats if c in frac.columns]]
     cmap_dict = palette or io.category_colors(ds.adata, gk) or {}
-    fig, ax = plt.subplots(figsize=figsize)
-    bottom = np.zeros(len(frac)); x = np.arange(len(frac))
-    for c in frac.columns:
-        ax.bar(x, frac[c].values, bottom=bottom, width=bar_width,
-               color=cmap_dict.get(c, None), label=c, linewidth=0)
-        bottom += frac[c].values
-    ax.set_xticks(x); ax.set_xticklabels(frac.index, rotation=30, ha="right")
-    ax.set_ylabel("fraction of cells" if normalize else "cells")
-    if normalize:
-        ax.set_ylim(0, 1)
-    ax.set_title(f"{gk} composition across {split}", fontsize=8.5)
-    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), frameon=False, fontsize=5.8)
-    fig.tight_layout()
+
+    with _font_ctx(font_family):
+        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+        bottom = np.zeros(len(frac)); x = np.arange(len(frac))
+        for c in frac.columns:
+            ax.bar(x, frac[c].values, bottom=bottom, width=bar_width,
+                   color=cmap_dict.get(c, None), label=c, linewidth=0)
+            bottom += frac[c].values
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(frac.index, rotation=rotation, ha="right",
+                           fontsize=tick_fontsize)
+        ax.tick_params(axis="y", labelsize=tick_fontsize)
+        ax.set_xlabel(xlabel or split, fontsize=xlabel_fontsize)
+        ax.set_ylabel(ylabel or ("fraction of cells" if normalize else "cells"),
+                      fontsize=ylabel_fontsize)
+        if normalize:
+            ax.set_ylim(0, 1)
+        ax.set_title(title or f"{gk} composition across {split}",
+                     fontsize=title_fontsize)
+        ax.legend(
+            title=gk,
+            loc="upper left", bbox_to_anchor=(1.01, 1.0),
+            frameon=False, fontsize=legend_fontsize,
+            title_fontsize=legend_title_fontsize,
+        )
+        fig.tight_layout()
     return fig
 
 
@@ -480,10 +752,7 @@ def markers_table(
     sort_by: str = "rank",
     ascending: bool = True,
 ) -> pd.DataFrame:
-    """Return the per-group differential-expression (marker) table as a DataFrame.
-
-    Columns: ``group``, ``gene``, ``rank`` and any score columns
-    (``logfoldchanges``, ``pvals_adj``, ...) present in the prepared object.
+    """Return the per-group DE / marker table as a DataFrame.
 
     Parameters
     ----------
@@ -492,14 +761,14 @@ def markers_table(
     top_n : int, optional
         Keep the top-N genes per group.
     sort_by : str
-        Column to sort by. Default ``"rank"``; other useful values:
-        ``"logfoldchange"``, ``"pval_adj"``, ``"score"``.
+        Column to sort by. Options: ``"rank"``, ``"logfoldchange"``,
+        ``"pval_adj"``, ``"score"``.
     ascending : bool
         Sort direction.
     """
     mdf = io.markers_df(ds.adata)
     if mdf is None:
-        raise ValueError("no marker/DE table in this dataset; run scPyviewer.prepare first")
+        raise ValueError("no marker/DE table; run scPyviewer.prepare first")
     if group is not None:
         mdf = mdf[mdf["group"].astype(str) == str(group)]
     if sort_by in mdf.columns:
@@ -511,9 +780,13 @@ def markers_table(
     return mdf.reset_index(drop=True)
 
 
-def composition_table(ds: Dataset, group: str | None = None, split: str | None = None,
-                      normalize: bool = True) -> pd.DataFrame:
-    """Return the ``group`` x ``split`` composition matrix as a DataFrame."""
+def composition_table(
+    ds: Dataset,
+    group: str | None = None,
+    split: str | None = None,
+    normalize: bool = True,
+) -> pd.DataFrame:
+    """Return the ``group`` × ``split`` composition matrix as a DataFrame."""
     gk = _group(ds, group)
     if split is None:
         split = next((c for c in ds.categorical if c != gk), gk)
@@ -546,23 +819,37 @@ def export_figures(
     formats=("png",),
     genes: list | None = None,
     dpi: int = 200,
+    figsize: tuple | None = None,
+    title_fontsize: float = 11,
+    tick_fontsize: float = 8,
+    label_fontsize: float = 9,
+    font_family: str | None = None,
 ) -> list:
     """Render the standard view set and write them to ``outdir``.
 
-    Produces: embedding (by group), embedding (by top marker gene),
-    multi-gene grid, violin, dot plot, and composition bar. Returns the list of
-    written file paths.
+    Produces: embedding (by group), embedding (by top gene), multi-gene grid,
+    violin, dot plot, composition. Returns the list of written file paths.
 
     Parameters
     ----------
     outdir : str
-        Directory to write figures into (created if absent).
+        Output directory (created if absent).
     formats : sequence[str]
-        Output formats — any of ``"png"``, ``"pdf"``, ``"svg"``.
+        Output formats: ``"png"``, ``"pdf"``, ``"svg"``.
     genes : list[str], optional
-        Genes to highlight. Defaults to the top-ranked marker genes.
+        Genes to highlight. Defaults to top-ranked marker genes.
     dpi : int
-        Dots-per-inch for raster formats (png). Has no effect on pdf/svg.
+        Raster resolution.
+    figsize : tuple, optional
+        Override figure size for all plots (passed to each ``plot_*`` call).
+    title_fontsize : float
+        Title font size applied to all plots.
+    tick_fontsize : float
+        Tick-label font size applied to all plots.
+    label_fontsize : float
+        Axis-label font size applied to all plots.
+    font_family : str, optional
+        Font family applied to all plots.
     """
     os.makedirs(outdir, exist_ok=True)
     formats = list(formats)
@@ -574,19 +861,33 @@ def export_figures(
     if genes is None:
         genes = ranked[:6] if ranked else list(ds.adata.var_names[:6])
     g1 = genes[0]
+
+    common = dict(dpi=dpi, title_fontsize=title_fontsize,
+                  tick_fontsize=tick_fontsize, font_family=font_family)
+    fs_kw = dict(figsize=figsize) if figsize else {}
+
     written = []
-    written += _save_fig(plot_embedding(ds, color=ds.group_key),
-                         os.path.join(outdir, "embedding_group"), formats, dpi=dpi)
-    written += _save_fig(plot_embedding(ds, gene=g1),
-                         os.path.join(outdir, "embedding_gene"), formats, dpi=dpi)
-    written += _save_fig(plot_multigene(ds, genes[:6]),
-                         os.path.join(outdir, "multigene_grid"), formats, dpi=dpi)
-    written += _save_fig(plot_violin(ds, g1),
-                         os.path.join(outdir, "violin"), formats, dpi=dpi)
-    written += _save_fig(plot_dotplot(ds, genes[:5]),
-                         os.path.join(outdir, "dotplot"), formats, dpi=dpi)
-    written += _save_fig(plot_composition(ds),
-                         os.path.join(outdir, "composition"), formats, dpi=dpi)
+    written += _save_fig(
+        plot_embedding(ds, color=ds.group_key, **common, **fs_kw),
+        os.path.join(outdir, "embedding_group"), formats, dpi=dpi)
+    written += _save_fig(
+        plot_embedding(ds, gene=g1, **common, **fs_kw),
+        os.path.join(outdir, "embedding_gene"), formats, dpi=dpi)
+    written += _save_fig(
+        plot_multigene(ds, genes[:6], **common, **fs_kw),
+        os.path.join(outdir, "multigene_grid"), formats, dpi=dpi)
+    written += _save_fig(
+        plot_violin(ds, g1, xlabel_fontsize=label_fontsize,
+                    ylabel_fontsize=label_fontsize, **common, **fs_kw),
+        os.path.join(outdir, "violin"), formats, dpi=dpi)
+    written += _save_fig(
+        plot_dotplot(ds, genes[:5], xlabel_fontsize=label_fontsize,
+                     ylabel_fontsize=label_fontsize, **common, **fs_kw),
+        os.path.join(outdir, "dotplot"), formats, dpi=dpi)
+    written += _save_fig(
+        plot_composition(ds, xlabel_fontsize=label_fontsize,
+                         ylabel_fontsize=label_fontsize, **common, **fs_kw),
+        os.path.join(outdir, "composition"), formats, dpi=dpi)
     return written
 
 
@@ -596,17 +897,17 @@ def export_tables(
     formats=("csv",),
     top_n: int | None = 25,
 ) -> list:
-    """Write the marker, composition, and metadata tables to ``outdir``.
+    """Write marker, composition, and metadata tables to ``outdir``.
 
     Parameters
     ----------
     outdir : str
-        Directory to write tables into (created if absent).
+        Output directory (created if absent).
     formats : sequence[str]
-        Output formats — any of ``"csv"``, ``"tsv"``, ``"xlsx"``
+        Output formats: ``"csv"``, ``"tsv"``, ``"xlsx"``
         (xlsx requires ``openpyxl``).
     top_n : int, optional
-        Limit marker table to the top N genes per group.
+        Limit marker table to top-N genes per group.
 
     Returns the list of written file paths.
     """
@@ -635,6 +936,7 @@ def export_tables(
 
 __all__ = [
     "Dataset", "load_dataset",
+    "set_style",
     "plot_embedding", "plot_multigene", "plot_violin", "plot_dotplot",
     "plot_composition",
     "markers_table", "composition_table", "metadata_table",
