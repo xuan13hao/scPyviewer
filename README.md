@@ -1,5 +1,6 @@
 # scPyviewer — Python-native interactive viewer for single-cell data
 
+[![PyPI version](https://img.shields.io/pypi/v/scPyviewer.svg)](https://pypi.org/project/scPyviewer/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/built%20with-Streamlit-FF4B4B.svg)](https://streamlit.io)
@@ -35,13 +36,18 @@ Every actively maintained tool in this space (ShinyCell, ScRDAVis, sCIRCLE/scVie
 ## Install
 
 ```bash
-# pip (editable, from the project root)
-pip install -e '.[all]'
+# PyPI (recommended)
+pip install scPyviewer
+
+# with optional extras (Streamlit viewer + leiden clustering + xlsx export)
+pip install 'scPyviewer[all]'
 
 # conda
 conda env create -f environment.yml
 conda activate scPyviewer
-pip install -e .
+
+# from source (editable)
+pip install -e '.[all]'
 ```
 
 This registers two console scripts — **`scpyviewer`** (launch the viewer) and **`scpyviewer-prepare`** (raw `.h5ad` → viewer-ready object) — and makes `import scPyviewer` available.
