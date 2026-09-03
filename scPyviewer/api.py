@@ -325,7 +325,9 @@ def plot_multigene(
     # labels
     suptitle: str | None = None,
     suptitle_fontsize: float = 10,
+    title_fontsize: float | None = None,  # alias for suptitle_fontsize
     panel_title_fontsize: float = 8,
+    tick_fontsize: float | None = None,   # sets colorbar tick size when given
     colorbar_fontsize: float = 6,
     # style
     font_family: str | None = None,
@@ -369,6 +371,7 @@ def plot_multigene(
     key = _resolve_embedding(ds, embedding)
     xy = io.embedding_2d(ds.adata, key)
     nrow = int(np.ceil(len(genes) / ncol))
+    sup_fs = title_fontsize if title_fontsize is not None else suptitle_fontsize
     auto_size = (3.0 * ncol, 2.8 * nrow)
     fs = figsize if figsize is not None else auto_size
 
@@ -385,14 +388,15 @@ def plot_multigene(
             ax.set_xticks([]); ax.set_yticks([])
             for s in ax.spines.values():
                 s.set_visible(False)
+            cb_tick = tick_fontsize if tick_fontsize is not None else colorbar_fontsize - 0.5
             cb = fig.colorbar(sc, ax=ax, fraction=0.046, pad=0.02)
-            cb.ax.tick_params(labelsize=colorbar_fontsize - 0.5)
+            cb.ax.tick_params(labelsize=cb_tick)
             cb.set_label("expr", fontsize=colorbar_fontsize)
         for j in range(len(genes), len(axes)):
             axes[j].set_visible(False)
         fig.suptitle(
             suptitle or f"Gene expression — {_emb_label(key)}",
-            x=0.02, ha="left", fontsize=suptitle_fontsize,
+            x=0.02, ha="left", fontsize=sup_fs,
         )
         fig.tight_layout(rect=[0, 0, 1, 0.97])
     return fig
