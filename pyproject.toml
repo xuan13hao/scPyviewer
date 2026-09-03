@@ -8,8 +8,8 @@ version = "0.2.0"
 description = "Python-native interactive viewer and programmatic API for single-cell AnnData (.h5ad) objects"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [{ name = "scPyviewer authors", email = "xuanhao@iu.edu" }]
+license = { file = "LICENSE" }
+authors = [{ name = "Xuan Hao", email = "xuanhao@iu.edu" }]
 keywords = ["single-cell", "scRNA-seq", "AnnData", "scanpy", "visualization", "streamlit"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -45,6 +45,8 @@ scpyviewer-prepare = "scPyviewer.prepare:main"
 
 [project.urls]
 Homepage = "https://github.com/xuan13hao/scPyviewer"
+"Bug Tracker" = "https://github.com/xuan13hao/scPyviewer/issues"
+"Source Code" = "https://github.com/xuan13hao/scPyviewer"
 
 [tool.setuptools]
 # pure-python package plus the app script that Streamlit runs by path

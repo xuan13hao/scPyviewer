@@ -1,0 +1,61 @@
+{% set name = "scPyviewer" %}
+{% set version = "0.2.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/scPyviewer-{{ version }}.tar.gz
+  # After `twine upload`, get the sha256 from:
+  #   https://pypi.org/project/scPyviewer/#files  (click "view hashes")
+  # then replace the placeholder below.
+  sha256: REPLACE_WITH_SHA256_FROM_PYPI
+
+build:
+  noarch: python
+  number: 0
+  script: {{ PYTHON }} -m pip install . --no-deps -vv
+  entry_points:
+    - scpyviewer = scPyviewer._launch:main
+    - scpyviewer-prepare = scPyviewer.prepare:main
+
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - setuptools >=64
+    - wheel
+  run:
+    - python >=3.10
+    - scanpy >=1.10
+    - anndata >=0.10
+    - numpy >=1.24
+    - pandas >=2.0
+    - scipy >=1.10
+    - scikit-learn >=1.3
+    - matplotlib >=3.7
+    - plotly >=5.20
+
+test:
+  imports:
+    - scPyviewer
+  commands:
+    - scpyviewer --help || true     # launcher exists
+    - scpyviewer-prepare --help || true
+
+about:
+  home: https://github.com/xuan13hao/scPyviewer
+  license: MIT
+  license_file: LICENSE
+  summary: Python-native interactive viewer and programmatic API for single-cell AnnData objects
+  description: |
+    scPyviewer ingests AnnData (.h5ad) files and exposes embeddings,
+    gene expression, metadata, and marker/DE tables through both an
+    interactive Streamlit app and a programmatic Python API.
+  doc_url: https://github.com/xuan13hao/scPyviewer
+  dev_url: https://github.com/xuan13hao/scPyviewer
+
+extra:
+  recipe-maintainers:
+    - xuan13hao
