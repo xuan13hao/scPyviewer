@@ -1,4 +1,4 @@
-# scPyviewer — Python-native interactive viewer for single-cell data
+# scPyviewer — Python-native interactive viewer and Python API for single-cell data
 
 [![PyPI version](https://img.shields.io/pypi/v/scPyviewer.svg)](https://pypi.org/project/scPyviewer/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
