@@ -748,6 +748,730 @@ def plot_composition(
     return fig
 
 
+
+# ------------------------------------------------------------------ new plots
+def plot_heatmap(
+    ds: Dataset,
+    genes: list,
+    group: str | None = None,
+    # layout
+    figsize: tuple | None = None,
+    dpi: int = 150,
+    # rendering
+    cmap: str = "viridis",
+    vmin: float | None = None,
+    vmax: float | None = None,
+    standard_scale: str | None = None,
+    swap_axes: bool = False,
+    show_group_bar: bool = True,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 11,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    xlabel_fontsize: float = 9,
+    ylabel_fontsize: float = 9,
+    tick_fontsize: float = 7,
+    group_label_fontsize: float = 7,
+    colorbar_label: str | None = None,
+    colorbar_fontsize: float = 8,
+    font_family: str | None = None,
+):
+    """Expression heatmap: genes × cells, grouped by a metadata column.
+
+    Better than ``sc.pl.heatmap``: direct ``figsize``/``dpi`` control, all
+    font sizes exposed as parameters, per-figure ``font_family`` override,
+    and explicit ``vmin``/``vmax`` for color scaling.
+
+    Parameters
+    ----------
+    genes : list[str]
+        Genes to show (rows when ``swap_axes=False``).
+    group : str, optional
+        ``obs`` column used to sort and annotate cells.
+    figsize : tuple, optional
+        Figure ``(width, height)`` in inches. Auto-computed if None.
+    dpi : int
+        Figure resolution.
+    cmap : str
+        Matplotlib colormap.
+    vmin / vmax : float, optional
+        Color-scale limits. Auto from data if None.
+    standard_scale : {None, "var", "obs"}
+        Normalize each gene (``"var"``) or each cell (``"obs"``) to [0, 1]
+        before plotting.
+    swap_axes : bool
+        If True, genes on X and cells on Y.
+    show_group_bar : bool
+        Render a color-coded group annotation bar.
+    title : str, optional
+        Figure title.
+    title_fontsize : float
+        Title font size.
+    xlabel / ylabel : str, optional
+        Axis label overrides.
+    xlabel_fontsize / ylabel_fontsize : float
+        Axis label font sizes.
+    tick_fontsize : float
+        Tick-label font size.
+    group_label_fontsize : float
+        Font size of group labels on the annotation bar.
+    colorbar_label : str, optional
+        Override colorbar label.
+    colorbar_fontsize : float
+        Colorbar label and tick font size.
+    font_family : str, optional
+        Font family for this figure only.
+    """
+    from scipy import sparse as sp
+    field = _group(ds, group)
+    genes = [g for g in genes if g in ds.adata.var_names]
+    if not genes:
+        raise ValueError("none of the requested genes are present")
+
+    cats = list(ds.adata.obs[field].astype("category").cat.categories)
+    cmap_dict = io.category_colors(ds.adata, field) or {}
+    order = np.concatenate([
+        np.where(ds.adata.obs[field].astype(str) == c)[0] for c in cats
+    ])
+    gidx = [ds.adata.var_names.get_loc(g) for g in genes]
+    layer = ds.adata.layers["lognorm"] if "lognorm" in ds.adata.layers else ds.adata.X
+    mat = layer[order][:, gidx]
+    mat = mat.toarray() if sp.issparse(mat) else np.asarray(mat)
+    mat = mat.astype(float)
+
+    if standard_scale == "var":
+        mn, mx = mat.min(axis=0), mat.max(axis=0)
+        mat = (mat - mn) / np.where(mx - mn > 0, mx - mn, 1.0)
+    elif standard_scale == "obs":
+        mn = mat.min(axis=1, keepdims=True)
+        mx = mat.max(axis=1, keepdims=True)
+        mat = (mat - mn) / np.where(mx - mn > 0, mx - mn, 1.0)
+
+    if swap_axes:
+        mat = mat.T
+
+    n_genes, n_cells = len(genes), len(order)
+    if swap_axes:
+        n_genes, n_cells = n_cells, n_genes
+    bar_h = 0.06 if show_group_bar else 0.0
+    auto_w = max(5.0, n_cells * 0.02)
+    auto_h = max(3.0, n_genes * 0.25) + bar_h * max(3.0, n_genes * 0.25)
+    fs = figsize if figsize is not None else (auto_w, auto_h)
+
+    height_ratios = [bar_h, 1 - bar_h] if show_group_bar and not swap_axes else [1]
+    n_rows = 2 if show_group_bar and not swap_axes else 1
+
+    with _font_ctx(font_family):
+        fig, axes = plt.subplots(
+            n_rows, 1, figsize=fs, dpi=dpi,
+            gridspec_kw={"height_ratios": height_ratios, "hspace": 0.01}
+            if n_rows == 2 else {},
+        )
+        ax_bar = axes[0] if n_rows == 2 else None
+        ax = axes[1] if n_rows == 2 else axes
+
+        im = ax.imshow(mat if not swap_axes else mat,
+                       aspect="auto", cmap=cmap,
+                       vmin=vmin, vmax=vmax, interpolation="nearest")
+        if swap_axes:
+            ax.set_xticks(range(len(genes)))
+            ax.set_xticklabels(genes, rotation=45, ha="right",
+                               style="italic", fontsize=tick_fontsize)
+            ax.set_yticks([])
+            ax.set_xlabel(xlabel or "Gene", fontsize=xlabel_fontsize)
+            ax.set_ylabel(ylabel or f"Cells ({n_cells:,})", fontsize=ylabel_fontsize)
+        else:
+            ax.set_yticks(range(len(genes)))
+            ax.set_yticklabels(genes, style="italic", fontsize=tick_fontsize)
+            ax.set_xticks([])
+            ax.set_xlabel(xlabel or f"Cells ({len(order):,})", fontsize=xlabel_fontsize)
+            ax.set_ylabel(ylabel or "Gene", fontsize=ylabel_fontsize)
+        ax.tick_params(labelsize=tick_fontsize)
+
+        if ax_bar is not None:
+            boundaries = [0] + list(np.cumsum(
+                [np.sum(ds.adata.obs[field].astype(str) == c) for c in cats]))
+            for i, c in enumerate(cats):
+                color = cmap_dict.get(c, f"C{i}")
+                ax_bar.barh(0, boundaries[i + 1] - boundaries[i],
+                            left=boundaries[i], height=1,
+                            color=color, linewidth=0)
+                mid = (boundaries[i] + boundaries[i + 1]) / 2
+                ax_bar.text(mid, 0.5, c, ha="center", va="center",
+                            fontsize=group_label_fontsize, color="white",
+                            fontweight="bold")
+            ax_bar.set_xlim(0, len(order))
+            ax_bar.axis("off")
+
+        cb = fig.colorbar(im, ax=ax, fraction=0.03, pad=0.01)
+        cb.set_label(colorbar_label or (
+            f"scaled expr ({standard_scale})" if standard_scale
+            else "log-norm expression"), fontsize=colorbar_fontsize)
+        cb.ax.tick_params(labelsize=colorbar_fontsize - 1)
+
+        ax.set_title(title or f"Expression heatmap — {field}",
+                     fontsize=title_fontsize)
+        fig.tight_layout()
+    return fig
+
+
+def plot_matrixplot(
+    ds: Dataset,
+    genes: list,
+    group: str | None = None,
+    # layout
+    figsize: tuple | None = None,
+    dpi: int = 150,
+    # rendering
+    cmap: str = "Blues",
+    vmin: float | None = None,
+    vmax: float | None = None,
+    standard_scale: str | None = None,
+    swap_axes: bool = False,
+    annotate: bool = False,
+    annotation_fmt: str = ".2f",
+    annotation_fontsize: float = 7,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 11,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    xlabel_fontsize: float = 9,
+    ylabel_fontsize: float = 9,
+    tick_fontsize: float = 8,
+    gene_label_rotation: int = 45,
+    colorbar_label: str | None = None,
+    colorbar_fontsize: float = 8,
+    font_family: str | None = None,
+):
+    """Mean-expression matrix heatmap: groups × genes.
+
+    Better than ``sc.pl.matrixplot``: direct ``figsize``/``dpi`` and full
+    font control. ``annotate=True`` overlays the numeric mean in each cell.
+
+    Parameters
+    ----------
+    genes : list[str]
+        Genes to include.
+    group : str, optional
+        ``obs`` column for row-grouping.
+    figsize : tuple, optional
+        Figure ``(width, height)`` in inches. Auto if None.
+    dpi : int
+        Resolution.
+    cmap : str
+        Colormap.
+    vmin / vmax : float, optional
+        Color-scale limits.
+    standard_scale : {None, "var", "group"}
+        Normalize per gene (``"var"``) or per group (``"group"``).
+    swap_axes : bool
+        Transpose: genes on Y, groups on X.
+    annotate : bool
+        Overlay numeric mean-expression values in each cell.
+    annotation_fmt : str
+        Python format string for annotations (e.g. ``".2f"``).
+    annotation_fontsize : float
+        Font size of annotation text.
+    title : str, optional
+        Figure title.
+    title_fontsize : float
+        Title font size.
+    xlabel / ylabel : str, optional
+        Axis label overrides.
+    xlabel_fontsize / ylabel_fontsize : float
+        Axis label font sizes.
+    tick_fontsize : float
+        Tick-label font size.
+    gene_label_rotation : int
+        Gene label rotation in degrees.
+    colorbar_label : str, optional
+        Override colorbar label.
+    colorbar_fontsize : float
+        Colorbar text size.
+    font_family : str, optional
+        Font family for this figure only.
+    """
+    from scipy import sparse as sp
+    field = _group(ds, group)
+    genes = [g for g in genes if g in ds.adata.var_names]
+    if not genes:
+        raise ValueError("none of the requested genes are present")
+    cats = list(ds.adata.obs[field].astype("category").cat.categories)
+    gidx = [ds.adata.var_names.get_loc(g) for g in genes]
+    layer = ds.adata.layers["lognorm"] if "lognorm" in ds.adata.layers else ds.adata.X
+    means = np.zeros((len(cats), len(genes)))
+    grp = ds.adata.obs[field].astype(str).values
+    for i, c in enumerate(cats):
+        sub = layer[grp == c][:, gidx]
+        sub = sub.toarray() if sp.issparse(sub) else np.asarray(sub)
+        means[i] = sub.mean(axis=0)
+
+    if standard_scale == "var":
+        mn, mx = means.min(axis=0), means.max(axis=0)
+        means = (means - mn) / np.where(mx - mn > 0, mx - mn, 1.0)
+    elif standard_scale == "group":
+        mn = means.min(axis=1, keepdims=True)
+        mx = means.max(axis=1, keepdims=True)
+        means = (means - mn) / np.where(mx - mn > 0, mx - mn, 1.0)
+
+    mat = means.T if swap_axes else means
+    row_labels = genes if swap_axes else cats
+    col_labels = cats if swap_axes else genes
+
+    auto_w = max(3.5, len(col_labels) * 0.55 + 1.5)
+    auto_h = max(3.0, len(row_labels) * 0.4 + 1.0)
+    fs = figsize if figsize is not None else (auto_w, auto_h)
+
+    with _font_ctx(font_family):
+        fig, ax = plt.subplots(figsize=fs, dpi=dpi)
+        im = ax.imshow(mat, aspect="auto", cmap=cmap,
+                       vmin=vmin, vmax=vmax, interpolation="nearest")
+
+        if annotate:
+            for r in range(mat.shape[0]):
+                for c in range(mat.shape[1]):
+                    val = mat[r, c]
+                    text_color = "white" if val > (mat.max() * 0.6) else "black"
+                    ax.text(c, r, format(val, annotation_fmt),
+                            ha="center", va="center",
+                            fontsize=annotation_fontsize, color=text_color)
+
+        ax.set_xticks(range(len(col_labels)))
+        ax.set_xticklabels(col_labels, rotation=gene_label_rotation,
+                           ha="right", fontsize=tick_fontsize,
+                           style="italic" if not swap_axes else "normal")
+        ax.set_yticks(range(len(row_labels)))
+        ax.set_yticklabels(row_labels, fontsize=tick_fontsize,
+                           style="italic" if swap_axes else "normal")
+        ax.tick_params(labelsize=tick_fontsize)
+        ax.set_xlabel(xlabel or ("Cell type" if not swap_axes else "Gene"),
+                      fontsize=xlabel_fontsize)
+        ax.set_ylabel(ylabel or ("Gene" if not swap_axes else "Cell type"),
+                      fontsize=ylabel_fontsize)
+
+        scale_tag = f" (scaled by {standard_scale})" if standard_scale else ""
+        ax.set_title(title or f"Mean expression — {field}{scale_tag}",
+                     fontsize=title_fontsize)
+
+        cb = fig.colorbar(im, ax=ax, fraction=0.03, pad=0.02)
+        cb.set_label(colorbar_label or "mean log-norm expr",
+                     fontsize=colorbar_fontsize)
+        cb.ax.tick_params(labelsize=colorbar_fontsize - 1)
+        fig.tight_layout()
+    return fig
+
+
+def plot_stacked_violin(
+    ds: Dataset,
+    genes: list,
+    group: str | None = None,
+    # layout
+    figsize: tuple | None = None,
+    dpi: int = 150,
+    swap_axes: bool = False,
+    # rendering
+    palette: dict | None = None,
+    inner: str | None = "box",
+    linewidth: float = 0.6,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 11,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    xlabel_fontsize: float = 9,
+    ylabel_fontsize: float = 9,
+    tick_fontsize: float = 7,
+    gene_label_fontsize: float = 8,
+    rotation: int = 30,
+    font_family: str | None = None,
+):
+    """Stacked violin plots: one violin per gene, grouped by a metadata column.
+
+    Better than ``sc.pl.stacked_violin``: direct ``figsize``/``dpi``,
+    full font control, and ``swap_axes`` to orient genes horizontally.
+
+    Parameters
+    ----------
+    genes : list[str]
+        Genes to show (one row per gene).
+    group : str, optional
+        ``obs`` grouping column.
+    figsize : tuple, optional
+        Figure ``(width, height)`` in inches. Auto if None.
+    dpi : int
+        Resolution.
+    swap_axes : bool
+        If True, genes on X-axis, groups on Y-axis.
+    palette : dict, optional
+        ``{label: color}`` override.
+    inner : {None, "box", "point"}
+        Inner marks inside each violin body.
+    linewidth : float
+        Violin body edge linewidth.
+    title : str, optional
+        Figure title.
+    title_fontsize : float
+        Title font size.
+    xlabel / ylabel : str, optional
+        Shared axis label overrides.
+    xlabel_fontsize / ylabel_fontsize : float
+        Shared axis label font sizes.
+    tick_fontsize : float
+        Tick-label font size.
+    gene_label_fontsize : float
+        Gene name label font size.
+    rotation : int
+        Group-label rotation in degrees (non-swapped mode).
+    font_family : str, optional
+        Font family for this figure only.
+    """
+    field = _group(ds, group)
+    genes = [g for g in genes if g in ds.adata.var_names]
+    if not genes:
+        raise ValueError("none of the requested genes are present")
+    order = sorted(ds.adata.obs[field].astype(str).unique())
+    cmap_dict = palette or io.category_colors(ds.adata, field) or {}
+    colors = [cmap_dict.get(s, f"C{i}") for i, s in enumerate(order)]
+    grp = ds.adata.obs[field].astype(str).values
+
+    n = len(genes)
+    if swap_axes:
+        auto_fs = (max(4, n * 0.9 + 1), max(3, len(order) * 0.5 + 1.5))
+    else:
+        auto_fs = (max(5, len(order) * 0.7 + 1.5), max(2, n * 1.2 + 0.8))
+    fs = figsize if figsize is not None else auto_fs
+
+    with _font_ctx(font_family):
+        if swap_axes:
+            fig, axes = plt.subplots(1, n, figsize=fs, dpi=dpi,
+                                     sharey=True, squeeze=False)
+            axes = axes[0]
+        else:
+            fig, axes = plt.subplots(n, 1, figsize=fs, dpi=dpi,
+                                     sharex=True, squeeze=False)
+            axes = [r[0] for r in axes]
+
+        for i, (ax, g) in enumerate(zip(axes, genes)):
+            expr = io.gene_vector(ds.adata, g, "lognorm")
+            data = [expr[grp == s] for s in order]
+
+            if swap_axes:
+                parts = ax.violinplot(data, vert=True, showmeans=False,
+                                      showextrema=False, widths=0.8)
+            else:
+                parts = ax.violinplot(data, vert=True, showmeans=False,
+                                      showextrema=False, widths=0.8)
+
+            for j, body in enumerate(parts["bodies"]):
+                body.set_facecolor(colors[j])
+                body.set_alpha(0.82)
+                body.set_edgecolor("none")
+                body.set_linewidth(linewidth)
+
+            if inner == "box":
+                for j, vals in enumerate(data):
+                    q1, med, q3 = np.percentile(vals, [25, 50, 75]) if len(vals) else (0, 0, 0)
+                    ax.plot([j + 1, j + 1], [q1, q3], color="#333", lw=linewidth * 2)
+                    ax.scatter([j + 1], [med], color="white", s=8, zorder=3, linewidths=0)
+            elif inner == "point":
+                rng = np.random.default_rng(0)
+                for j, vals in enumerate(data):
+                    jitter = rng.uniform(-0.08, 0.08, len(vals))
+                    ax.scatter(np.full(len(vals), j + 1) + jitter, vals,
+                               s=1.5, alpha=0.35, color=colors[j], linewidths=0)
+
+            ax.set_xticks(range(1, len(order) + 1))
+            if swap_axes or i == n - 1:
+                ax.set_xticklabels(order, rotation=rotation, ha="right",
+                                   fontsize=tick_fontsize)
+            else:
+                ax.set_xticklabels([])
+            ax.tick_params(axis="y", labelsize=tick_fontsize)
+            ax.set_ylabel(g, fontsize=gene_label_fontsize, style="italic",
+                          rotation=0 if swap_axes else 90,
+                          labelpad=4, ha="right" if not swap_axes else "center")
+            for spine in ("top", "right"):
+                ax.spines[spine].set_visible(False)
+
+        if not swap_axes:
+            axes[-1].set_xlabel(xlabel or field, fontsize=xlabel_fontsize)
+        else:
+            fig.text(0.5, 0.02, xlabel or field, ha="center",
+                     fontsize=xlabel_fontsize)
+        fig.text(0.01, 0.5, ylabel or "log-norm expression", ha="center",
+                 va="center", rotation=90, fontsize=ylabel_fontsize)
+
+        fig.suptitle(title or f"Expression by {field}", fontsize=title_fontsize,
+                     x=0.5, ha="center")
+        fig.tight_layout(rect=[0.05, 0.05, 1, 0.96])
+    return fig
+
+
+def plot_tracksplot(
+    ds: Dataset,
+    genes: list,
+    group: str | None = None,
+    # layout
+    figsize: tuple | None = None,
+    dpi: int = 150,
+    # rendering
+    cmap: str = "viridis",
+    vmin: float | None = None,
+    vmax: float | None = None,
+    show_group_labels: bool = True,
+    track_height: float = 0.4,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 11,
+    gene_label_fontsize: float = 8,
+    group_label_fontsize: float = 8,
+    colorbar_label: str | None = None,
+    colorbar_fontsize: float = 8,
+    font_family: str | None = None,
+):
+    """Track-style expression plot: one horizontal color strip per gene.
+
+    Cells are sorted by group; vertical dividers mark group boundaries.
+    Better than ``sc.pl.tracksplot``: full typography control, direct
+    ``figsize``/``dpi``, and configurable track height.
+
+    Parameters
+    ----------
+    genes : list[str]
+        Genes to show (one track each).
+    group : str, optional
+        ``obs`` column used to sort and annotate cells.
+    figsize : tuple, optional
+        Figure ``(width, height)`` in inches. Auto if None.
+    dpi : int
+        Resolution.
+    cmap : str
+        Colormap for expression values.
+    vmin / vmax : float, optional
+        Color-scale limits.
+    show_group_labels : bool
+        Annotate group boundaries at the bottom.
+    track_height : float
+        Height of each gene track in inches.
+    title : str, optional
+        Figure title.
+    title_fontsize : float
+        Title font size.
+    gene_label_fontsize : float
+        Gene name label font size.
+    group_label_fontsize : float
+        Group boundary label font size.
+    colorbar_label : str, optional
+        Override colorbar label.
+    colorbar_fontsize : float
+        Colorbar text size.
+    font_family : str, optional
+        Font family for this figure only.
+    """
+    from scipy import sparse as sp
+    field = _group(ds, group)
+    genes = [g for g in genes if g in ds.adata.var_names]
+    if not genes:
+        raise ValueError("none of the requested genes are present")
+
+    cats = list(ds.adata.obs[field].astype("category").cat.categories)
+    order = np.concatenate([
+        np.where(ds.adata.obs[field].astype(str) == c)[0] for c in cats
+    ])
+    group_sizes = [int(np.sum(ds.adata.obs[field].astype(str) == c)) for c in cats]
+    boundaries = np.cumsum([0] + group_sizes)
+    n_cells = len(order)
+
+    gidx = [ds.adata.var_names.get_loc(g) for g in genes]
+    layer = ds.adata.layers["lognorm"] if "lognorm" in ds.adata.layers else ds.adata.X
+    mat = layer[order][:, gidx]
+    mat = mat.toarray() if sp.issparse(mat) else np.asarray(mat, dtype=float)
+    mat = mat.T  # genes × cells
+
+    label_h = 0.5 if show_group_labels else 0.0
+    auto_w = max(6.0, n_cells * 0.015)
+    auto_h = len(genes) * track_height + label_h + 0.5
+    fs = figsize if figsize is not None else (auto_w, auto_h)
+
+    with _font_ctx(font_family):
+        fig = plt.figure(figsize=fs, dpi=dpi)
+        gs = fig.add_gridspec(
+            len(genes), 1, hspace=0.04,
+            left=0.12, right=0.88, top=0.92,
+            bottom=label_h / fs[1] + 0.05,
+        )
+        axes = [fig.add_subplot(gs[i]) for i in range(len(genes))]
+
+        im = None
+        for i, (ax, g) in enumerate(zip(axes, genes)):
+            expr = mat[i].reshape(1, -1)
+            im = ax.imshow(expr, aspect="auto", cmap=cmap,
+                           vmin=vmin, vmax=vmax, interpolation="nearest")
+            for b in boundaries[1:-1]:
+                ax.axvline(b, color="white", lw=0.6)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_ylabel(g, fontsize=gene_label_fontsize, style="italic",
+                          rotation=0, ha="right", va="center", labelpad=4)
+
+        if show_group_labels and len(axes) > 0:
+            ax_bot = axes[-1]
+            for j, c in enumerate(cats):
+                mid = (boundaries[j] + boundaries[j + 1]) / 2
+                fig.text(
+                    0.12 + (mid / n_cells) * 0.76,
+                    0.01 + label_h / fs[1] * 0.3,
+                    c, ha="center", va="bottom",
+                    fontsize=group_label_fontsize,
+                )
+
+        if im is not None:
+            cbar_ax = fig.add_axes([0.89, 0.15, 0.015, 0.7])
+            cb = fig.colorbar(im, cax=cbar_ax)
+            cb.set_label(colorbar_label or "log-norm expression",
+                         fontsize=colorbar_fontsize)
+            cb.ax.tick_params(labelsize=colorbar_fontsize - 1)
+
+        fig.suptitle(title or f"Expression tracks — {field}",
+                     fontsize=title_fontsize, y=0.97)
+    return fig
+
+
+def plot_correlation(
+    ds: Dataset,
+    group: str | None = None,
+    genes: list | None = None,
+    method: str = "pearson",
+    # layout
+    figsize: tuple | None = None,
+    dpi: int = 150,
+    # rendering
+    cmap: str = "RdBu_r",
+    vmin: float = -1.0,
+    vmax: float = 1.0,
+    annotate: bool = True,
+    annotation_fmt: str = ".2f",
+    annotation_fontsize: float = 8,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 11,
+    tick_fontsize: float = 9,
+    colorbar_label: str | None = None,
+    colorbar_fontsize: float = 8,
+    rotation: int = 45,
+    font_family: str | None = None,
+):
+    """Pairwise correlation matrix between groups (based on mean expression).
+
+    Better than ``sc.pl.correlation_matrix``: ``"pearson"`` or ``"spearman"``,
+    value annotations in every cell, ``vmin``/``vmax`` control, and full
+    font/size control.
+
+    Parameters
+    ----------
+    group : str, optional
+        ``obs`` column whose categories become the matrix rows/cols.
+    genes : list[str], optional
+        Subset of genes used to compute correlations. Defaults to all genes.
+    method : {"pearson", "spearman"}
+        Correlation method.
+    figsize : tuple, optional
+        Figure ``(width, height)`` in inches. Auto if None.
+    dpi : int
+        Resolution.
+    cmap : str
+        Diverging colormap (e.g. ``"vlag"``, ``"RdBu_r"``).
+    vmin / vmax : float
+        Color-scale limits (default ±1).
+    annotate : bool
+        Overlay correlation values in each cell.
+    annotation_fmt : str
+        Format string for annotations.
+    annotation_fontsize : float
+        Annotation font size.
+    title : str, optional
+        Figure title.
+    title_fontsize : float
+        Title font size.
+    tick_fontsize : float
+        Tick-label font size.
+    colorbar_label : str, optional
+        Override colorbar label.
+    colorbar_fontsize : float
+        Colorbar text size.
+    rotation : int
+        X-tick label rotation in degrees.
+    font_family : str, optional
+        Font family for this figure only.
+    """
+    from scipy import sparse as sp
+    from scipy.stats import spearmanr
+
+    field = _group(ds, group)
+    cats = list(ds.adata.obs[field].astype("category").cat.categories)
+    layer = ds.adata.layers["lognorm"] if "lognorm" in ds.adata.layers else ds.adata.X
+    grp = ds.adata.obs[field].astype(str).values
+
+    if genes is not None:
+        genes = [g for g in genes if g in ds.adata.var_names]
+        gidx = [ds.adata.var_names.get_loc(g) for g in genes]
+    else:
+        gidx = list(range(ds.adata.n_vars))
+
+    means = np.zeros((len(cats), len(gidx)))
+    for i, c in enumerate(cats):
+        sub = layer[grp == c][:, gidx]
+        sub = sub.toarray() if sp.issparse(sub) else np.asarray(sub, dtype=float)
+        means[i] = sub.mean(axis=0)
+
+    n = len(cats)
+    corr = np.ones((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            if method == "spearman":
+                r, _ = spearmanr(means[i], means[j])
+            else:
+                denom = np.std(means[i]) * np.std(means[j])
+                r = float(np.corrcoef(means[i], means[j])[0, 1]) if denom > 0 else 0.0
+            corr[i, j] = corr[j, i] = r
+
+    auto_n = max(4.0, n * 0.7 + 1.5)
+    fs = figsize if figsize is not None else (auto_n, auto_n)
+
+    with _font_ctx(font_family):
+        fig, ax = plt.subplots(figsize=fs, dpi=dpi)
+        im = ax.imshow(corr, cmap=cmap, vmin=vmin, vmax=vmax,
+                       interpolation="nearest", aspect="auto")
+
+        if annotate:
+            for i in range(n):
+                for j in range(n):
+                    text_color = "white" if abs(corr[i, j]) > 0.6 else "black"
+                    ax.text(j, i, format(corr[i, j], annotation_fmt),
+                            ha="center", va="center",
+                            fontsize=annotation_fontsize, color=text_color)
+
+        ax.set_xticks(range(n))
+        ax.set_xticklabels(cats, rotation=rotation, ha="right",
+                           fontsize=tick_fontsize)
+        ax.set_yticks(range(n))
+        ax.set_yticklabels(cats, fontsize=tick_fontsize)
+        ax.tick_params(labelsize=tick_fontsize)
+
+        method_label = method.capitalize()
+        ax.set_title(title or f"{method_label} correlation — {field}",
+                     fontsize=title_fontsize)
+
+        cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cb.set_label(colorbar_label or f"{method_label} r",
+                     fontsize=colorbar_fontsize)
+        cb.ax.tick_params(labelsize=colorbar_fontsize - 1)
+        fig.tight_layout()
+    return fig
+
+
 # ------------------------------------------------------------------ tables
 def markers_table(
     ds: Dataset,

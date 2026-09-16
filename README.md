@@ -138,6 +138,13 @@ fig = sv.plot_violin(ds, gene="CD3D", group=ds.group_key)
 fig = sv.plot_dotplot(ds, genes=["CD3D", "CD19", "CD14"], group=ds.group_key)
 fig = sv.plot_composition(ds, group=ds.group_key, split="sample")
 
+# --- scanpy-equivalent plots (v0.4.0+) ---
+fig = sv.plot_heatmap(ds, genes=["CD3D", "CD19", "CD14"], group=ds.group_key)
+fig = sv.plot_matrixplot(ds, genes=["CD3D", "CD19", "CD14"], group=ds.group_key, annotate=True)
+fig = sv.plot_stacked_violin(ds, genes=["CD3D", "CD19", "CD14"], group=ds.group_key)
+fig = sv.plot_tracksplot(ds, genes=["CD3D", "CD19", "CD14"], group=ds.group_key)
+fig = sv.plot_correlation(ds, group=ds.group_key, method="pearson")
+
 # --- tables → pandas.DataFrame ---
 mk   = sv.markers_table(ds, top_n=25)
 comp = sv.composition_table(ds, group=ds.group_key, split="sample")
@@ -155,7 +162,7 @@ sv.set_style(font_family="Arial", base_fontsize=11, dpi=300)
 # applies to all subsequent plot_* calls in the session
 ```
 
-### API parameter reference (v0.3.0)
+### API parameter reference (v0.4.0)
 
 All plotting functions expose full typography and layout controls for
 publication-quality figures.
@@ -166,18 +173,28 @@ publication-quality figures.
 | `dpi` | `int` | all | Resolution (dots per inch) |
 | `title` | `str` | all | Override auto-generated title |
 | `title_fontsize` | `float` | all | Title font size |
-| `xlabel` / `ylabel` | `str` | violin, dotplot, composition | Axis label overrides |
-| `xlabel_fontsize` / `ylabel_fontsize` | `float` | violin, dotplot, composition | Axis label font sizes |
+| `xlabel` / `ylabel` | `str` | violin, dotplot, composition, heatmap, matrixplot, stacked_violin, tracksplot | Axis label overrides |
+| `xlabel_fontsize` / `ylabel_fontsize` | `float` | violin, dotplot, composition, heatmap, matrixplot, stacked_violin, tracksplot | Axis label font sizes |
 | `tick_fontsize` | `float` | all | Tick-label font size |
 | `legend_fontsize` | `float` | embedding, dotplot, composition | Legend entry font size |
 | `legend_title_fontsize` | `float` | embedding, dotplot, composition | Legend title font size |
-| `colorbar_fontsize` | `float` | embedding (gene), multigene, dotplot | Colorbar text size |
+| `colorbar_fontsize` | `float` | embedding (gene), multigene, dotplot, heatmap, matrixplot, tracksplot, correlation | Colorbar text size |
 | `label_fontsize` | `float` | embedding | Centroid group label size |
 | `panel_title_fontsize` | `float` | multigene | Per-panel gene title size |
 | `suptitle_fontsize` | `float` | multigene | Figure super-title size |
 | `gene_label_rotation` | `int` | dotplot | X-axis gene label rotation (°) |
+| `gene_label_fontsize` | `float` | stacked_violin | Gene label font size on Y axis |
 | `rotation` | `int` | violin, composition | X-tick label rotation (°) |
 | `font_family` | `str` | all | Per-figure font family override |
+| `vmin` / `vmax` | `float` | heatmap, matrixplot, tracksplot, correlation | Clip color range |
+| `standard_scale` | `str` | dotplot, heatmap, matrixplot | `None`, `"var"`, or `"group"` |
+| `swap_axes` | `bool` | heatmap, matrixplot, stacked_violin | Transpose gene/group axes |
+| `annotate` | `bool` | matrixplot, correlation | Overlay numeric values in each cell |
+| `annotation_fmt` | `str` | matrixplot, correlation | Python format string, e.g. `".2f"` |
+| `inner` | `str` | stacked_violin | Violin inner: `"box"`, `"quartile"`, `"point"`, `None` |
+| `track_height` | `float` | tracksplot | Height of each gene track (inches) |
+| `show_group_labels` | `bool` | tracksplot | Label group boundaries |
+| `method` | `str` | correlation | `"pearson"` or `"spearman"` |
 
 **Per-function quick reference:**
 
@@ -187,8 +204,13 @@ publication-quality figures.
 | `plot_embedding` | `color`, `gene`, `embedding`, `point_size`, `alpha`, `cmap`, `label_groups`, `show_legend` + all typography params |
 | `plot_multigene` | `genes`, `ncol`, `max_genes`, `point_size`, `cmap`, `alpha` + all typography params |
 | `plot_violin` | `gene`, `group`, `kind` (`"violin"`/`"box"`), `palette`, `show_points` + all typography params |
-| `plot_dotplot` | `genes`, `group`, `cmap`, `size_scale`, `standard_scale` (`None`/`"var"`/`"group"`) + all typography params |
+| `plot_dotplot` | `genes`, `group`, `cmap`, `size_scale`, `standard_scale` + all typography params |
 | `plot_composition` | `group`, `split`, `normalize`, `palette`, `bar_width`, `sort_groups` + all typography params |
+| `plot_heatmap` | `genes`, `group`, `swap_axes`, `standard_scale`, `show_group_bar`, `vmin`, `vmax`, `cmap` + all typography params |
+| `plot_matrixplot` | `genes`, `group`, `swap_axes`, `standard_scale`, `annotate`, `annotation_fmt`, `vmin`, `vmax`, `cmap` + all typography params |
+| `plot_stacked_violin` | `genes`, `group`, `swap_axes`, `inner`, `linewidth`, `gene_label_fontsize` + all typography params |
+| `plot_tracksplot` | `genes`, `group`, `cmap`, `vmin`, `vmax`, `track_height`, `show_group_labels` + all typography params |
+| `plot_correlation` | `group`, `genes`, `method`, `annotate`, `annotation_fmt`, `vmin`, `vmax`, `cmap` + all typography params |
 | `markers_table` | `group`, `top_n`, `sort_by`, `ascending` |
 | `export_figures` | `outdir`, `formats`, `genes`, `dpi`, `figsize`, `title_fontsize`, `tick_fontsize`, `label_fontsize`, `font_family` |
 | `export_tables` | `outdir`, `formats`, `top_n` |
