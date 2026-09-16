@@ -38,7 +38,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")
+try:
+    get_ipython  # defined in IPython/Jupyter kernels — don't override their backend
+except NameError:
+    matplotlib.use("Agg")
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
