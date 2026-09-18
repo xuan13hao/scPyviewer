@@ -164,6 +164,8 @@ sv.set_style(font_family="Arial", base_fontsize=11, dpi=300)
 
 ### API parameter reference (v0.4.0)
 
+Full parameter documentation — types, valid options, defaults, and usage examples for every function — is in **[DOCUMENT.md](DOCUMENT.md)**.
+
 All plotting functions expose full typography and layout controls for
 publication-quality figures.
 
