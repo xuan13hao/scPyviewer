@@ -17,16 +17,16 @@ Publication-quality figures from the programmatic API, rendered on the chicken-h
 
 <table>
   <tr>
-    <td align="center"><img src="docs/images/embedding_celltype.png" width="100%"><br><sub><code>plot_embedding(ds, color="cell_type")</code></sub></td>
-    <td align="center"><img src="docs/images/embedding_gene.png" width="100%"><br><sub><code>plot_embedding(ds, gene="MYL2")</code></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/embedding_celltype.png" width="100%"><br><sub><code>plot_embedding(ds, color="cell_type")</code></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/embedding_gene.png" width="100%"><br><sub><code>plot_embedding(ds, gene="MYL2")</code></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/images/dotplot.png" width="100%"><br><sub><code>plot_dotplot(ds, markers)</code></sub></td>
-    <td align="center"><img src="docs/images/heatmap.png" width="100%"><br><sub><code>plot_heatmap(ds, markers)</code></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/dotplot.png" width="100%"><br><sub><code>plot_dotplot(ds, markers)</code></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/heatmap.png" width="100%"><br><sub><code>plot_heatmap(ds, markers)</code></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/images/violin.png" width="100%"><br><sub><code>plot_violin(ds, "MYL2")</code></sub></td>
-    <td align="center"><img src="docs/images/composition.png" width="100%"><br><sub><code>plot_composition(ds)</code></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/violin.png" width="100%"><br><sub><code>plot_violin(ds, "MYL2")</code></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/composition.png" width="100%"><br><sub><code>plot_composition(ds)</code></sub></td>
   </tr>
 </table>
 
@@ -36,12 +36,12 @@ Publication figure types beyond the scanpy defaults — grouped comparison bars,
 
 <table>
   <tr>
-    <td align="center"><img src="docs/images/bar.png" width="100%"><br><sub><code>plot_bar(ds, "MYL2", sort="descending", annotate=True)</code><br>grouped mean ± SEM, value labels</sub></td>
-    <td align="center"><img src="docs/images/trend.png" width="100%"><br><sub><code>plot_trend(ds, "MYL2", x="day", group="cell_type")</code><br>expression trend over timepoints, error bands</sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/bar.png" width="100%"><br><sub><code>plot_bar(ds, "MYL2", sort="descending", annotate=True)</code><br>grouped mean ± SEM, value labels</sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/trend.png" width="100%"><br><sub><code>plot_trend(ds, "MYL2", x="day", group="cell_type")</code><br>expression trend over timepoints, error bands</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/images/radar.png" width="100%"><br><sub><code>plot_radar(ds, markers, scale="var")</code><br>multi-gene signature per group</sub></td>
-    <td align="center"><img src="docs/images/embedding_3d.png" width="100%"><br><sub><code>plot_embedding_3d(ds, color="cell_type", embedding="X_pca")</code><br>3-D embedding scatter</sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/radar.png" width="100%"><br><sub><code>plot_radar(ds, markers, scale="var")</code><br>multi-gene signature per group</sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/embedding_3d.png" width="100%"><br><sub><code>plot_embedding_3d(ds, color="cell_type", embedding="X_pca")</code><br>3-D embedding scatter</sub></td>
   </tr>
 </table>
 
