@@ -30,9 +30,9 @@ Publication-quality figures from the programmatic API, rendered on the chicken-h
   </tr>
 </table>
 
-### New plot genres (v0.4.1+)
+### New plot genres (v0.5.0+)
 
-Publication figure types beyond the scanpy defaults — grouped comparison bars, developmental trend lines, multi-gene radar, and 3-D embeddings — each a single `plot_*` call:
+Publication figure types beyond the scanpy defaults — grouped comparison bars, developmental trend lines, multi-gene radar, and 3-D embeddings — each a single `plot_*` call (runnable demos in [tutorial.ipynb](tutorial.ipynb) §17–20):
 
 <table>
   <tr>
@@ -198,7 +198,7 @@ sv.set_style(font_family="Arial", base_fontsize=11, dpi=300)
 # applies to all subsequent plot_* calls in the session
 ```
 
-### Publication style (v0.4.1+)
+### Publication style (v0.5.0+)
 
 One call installs a publication-quality global style — Helvetica stack, no
 top/right spines, 300 dpi, frameless legends, editable SVG text — and a
@@ -258,6 +258,7 @@ publication-quality figures.
 | Function | Key parameters |
 |---|---|
 | `set_style` | `font_family`, `base_fontsize`, `dpi`, `style` |
+| `set_publication_style` | `palette` (`"okabe-ito"`/`"publication"`), `dpi`, `base_fontsize`, `linewidth`, `bold_titles`, `usetex` |
 | `plot_embedding` | `color`, `gene`, `embedding`, `point_size`, `alpha`, `cmap`, `label_groups`, `show_legend` + all typography params |
 | `plot_multigene` | `genes`, `ncol`, `max_genes`, `point_size`, `cmap`, `alpha` + all typography params |
 | `plot_violin` | `gene`, `group`, `kind` (`"violin"`/`"box"`), `palette`, `show_points` + all typography params |
@@ -268,6 +269,10 @@ publication-quality figures.
 | `plot_stacked_violin` | `genes`, `group`, `swap_axes`, `inner`, `linewidth`, `gene_label_fontsize` + all typography params |
 | `plot_tracksplot` | `genes`, `group`, `cmap`, `vmin`, `vmax`, `track_height`, `show_group_labels` + all typography params |
 | `plot_correlation` | `group`, `genes`, `method`, `annotate`, `annotation_fmt`, `vmin`, `vmax`, `cmap` + all typography params |
+| `plot_bar` | `gene`, `group`, `error` (`"sem"`/`"std"`/`"none"`), `sort`, `annotate`, `edgecolor` + all typography params |
+| `plot_trend` | `gene`, `x`, `group`, `error`, `show_band`, `band_alpha`, `linewidth`, `marker` + all typography params |
+| `plot_radar` | `genes`, `group`, `scale` (`"var"`/`None`), `fill_alpha`, `max_groups` + all typography params |
+| `plot_embedding_3d` | `color`, `gene`, `embedding` (≥3-D), `elev`, `azim`, `point_size`, `cmap` + all typography params |
 | `markers_table` | `group`, `top_n`, `sort_by`, `ascending` |
 | `export_figures` | `outdir`, `formats`, `genes`, `dpi`, `figsize`, `title_fontsize`, `tick_fontsize`, `label_fontsize`, `font_family` |
 | `export_tables` | `outdir`, `formats`, `top_n` |
