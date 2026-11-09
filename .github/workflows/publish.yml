@@ -8,8 +8,10 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    environment: pypi          # must match the environment set on PyPI (optional but recommended)
     permissions:
       contents: read
+      id-token: write          # REQUIRED for Trusted Publishing + provenance attestations
 
     steps:
       - uses: actions/checkout@v4
@@ -26,5 +28,5 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+        # No password: Trusted Publishing uses the OIDC token from `id-token: write`.
+        # `attestations` defaults to true, which restores provenance for this release.
