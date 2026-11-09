@@ -229,6 +229,147 @@ def prepare_backed_only(in_path: str, out_path: str,
     return manifest
 
 
+def _stratified_indices(labels: np.ndarray, n_total: int, rng,
+                        min_per_group: int = 50) -> np.ndarray:
+    """Pick ~n_total row indices, keeping each group's share (with a floor so
+    rare groups are not lost)."""
+    uniq, inv = np.unique(labels, return_inverse=True)
+    N = len(labels)
+    picks = []
+    for g in range(len(uniq)):
+        members = np.where(inv == g)[0]
+        quota = int(round(n_total * len(members) / N))
+        quota = max(quota, min(len(members), min_per_group))
+        quota = min(quota, len(members))
+        picks.append(rng.choice(members, quota, replace=False))
+    out = np.concatenate(picks)
+    if len(out) > n_total:
+        out = rng.choice(out, n_total, replace=False)
+    return np.sort(out)
+
+
+def prepare_subsample(in_path: str, out_path: str, n_cells: int = 50_000,
+                      stratify_by: str | None = "auto", group_key: str | None = None,
+                      seed: int = 0, n_top_genes: int = 2000) -> dict[str, Any]:
+    """Write a stratified cell subsample of a too-big ``.h5ad`` for fast, low-RAM viewing.
+
+    Designed for files larger than available RAM (e.g. a 1M+ cell atlas).  Opens
+    the input in backed mode and pulls only ~``n_cells`` rows into memory via
+    bounded backed row-indexing, so **peak RAM scales with ``n_cells``, not with
+    the file size**.  The subsample is normalised, annotated (HVG + per-group
+    DE), and written with X in **CSC** format so the viewer gets instant
+    per-gene column access.
+
+    A stratified subsample of 50–100k cells reproduces group composition,
+    embeddings, and per-group expression statistics of the full atlas while
+    staying small enough to explore interactively on a laptop.
+
+    Parameters
+    ----------
+    n_cells : int
+        Target number of cells to keep.
+    stratify_by : str or None
+        ``obs`` column to stratify the subsample by (keeps each group's share).
+        ``"auto"`` picks a cell-type/cluster column; ``None`` samples uniformly.
+    group_key : str, optional
+        Grouping column for DE / the viewer's default (auto-detected if omitted).
+    seed : int
+        RNG seed for reproducible subsampling.
+    """
+    import anndata as ad
+    import gc as _gc
+    t0 = time.time()
+    manifest: dict[str, Any] = {"input": in_path, "output": out_path,
+                                "mode": "subsample", "computed": [],
+                                "skipped": [], "warnings": []}
+
+    adata = sc.read_h5ad(in_path, backed="r")
+    n_full = int(adata.n_obs)
+    manifest["n_obs_full"], manifest["n_vars"] = n_full, int(adata.n_vars)
+
+    rng = np.random.default_rng(seed)
+    if stratify_by == "auto":
+        stratify_by = _pick_grouping(adata, group_key)
+    if stratify_by and stratify_by in adata.obs.columns and n_cells < n_full:
+        labels = adata.obs[stratify_by].astype(str).values
+        idx = _stratified_indices(labels, n_cells, rng)
+        manifest["computed"].append(f"stratified subsample by {stratify_by!r}")
+    else:
+        idx = np.sort(rng.choice(n_full, min(n_cells, n_full), replace=False))
+        manifest["computed"].append("uniform subsample")
+    manifest["n_obs"] = int(len(idx))
+
+    # Bounded-memory read of just the selected rows (peak RAM ~ n_cells, not file).
+    X = adata.X[idx]
+    X = sp.csr_matrix(X)
+    if X.dtype != np.float32:
+        X = X.astype(np.float32)
+    obs = adata.obs.iloc[idx].copy()
+    obsm = {k: np.asarray(adata.obsm[k])[idx] for k in adata.obsm.keys()}
+    var = adata.var.copy()
+    uns_src = {k: adata.uns[k] for k in adata.uns.keys()
+               if k in ("organism", "title", "batch_condition")}
+    adata.file.close()
+    del adata; _gc.collect()
+
+    sub = ad.AnnData(X=X, obs=obs, var=var)
+    for k, v in obsm.items():
+        sub.obsm[k] = v
+    sub.uns.update(uns_src)
+
+    # --- normalise the (small) subsample so coloring / violins use log-norm ---
+    if _looks_lognormed(sub.X):
+        manifest["skipped"].append("normalize (already log-normalized)")
+    else:
+        sc.pp.normalize_total(sub, target_sum=1e4)
+        sc.pp.log1p(sub)
+        manifest["computed"].append("normalize_total(1e4) + log1p")
+    sub.layers["lognorm"] = sub.X
+
+    # --- HVG + per-group DE markers (cheap on the subsample) ------------------
+    try:
+        sc.pp.highly_variable_genes(sub, n_top_genes=min(n_top_genes, sub.n_vars),
+                                    flavor="seurat")
+        manifest["computed"].append("highly_variable_genes")
+    except Exception as e:  # noqa
+        manifest["warnings"].append(f"HVG failed: {e}")
+
+    gk = _pick_grouping(sub, group_key)
+    manifest["group_key"] = gk
+    if gk is not None:
+        sub.obs[gk] = sub.obs[gk].astype("category")
+        try:
+            sc.tl.rank_genes_groups(sub, groupby=gk, method="wilcoxon", use_raw=False)
+            sub.uns["scPyviewer_markers"] = _tidy_markers(sub, gk).to_dict("list")
+            manifest["computed"].append(f"rank_genes_groups(wilcoxon, {gk})")
+        except Exception as e:  # noqa
+            manifest["warnings"].append(f"DE failed: {e}")
+
+    embeddings = sorted(k for k in sub.obsm.keys() if k.startswith("X_"))
+    sub.uns["scPyviewer"] = {
+        "schema": _schema(sub),
+        "embeddings": embeddings,
+        "group_key": gk,
+        "n_obs": int(sub.n_obs),
+        "n_vars": int(sub.n_vars),
+        "subsampled_from": n_full,
+        "prepared_by": "scPyviewer.prepare (subsample)",
+    }
+    manifest["embeddings"] = embeddings
+    manifest["schema"] = sub.uns["scPyviewer"]["schema"]
+    sub.uns.pop("log1p", None)
+
+    # CSC => fast per-gene column access in the viewer (subsample is small).
+    sub.X = sp.csc_matrix(sub.X)
+    sub.layers["lognorm"] = sub.X
+
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    sub.write_h5ad(out_path)
+    manifest["elapsed_sec"] = round(time.time() - t0, 2)
+    manifest["output_size_mb"] = round(os.path.getsize(out_path) / 1e6, 1)
+    return manifest
+
+
 def prepare(in_path: str, out_path: str, group_key: str | None = None,
             n_top_genes: int = 2000, do_tsne: bool = True,
             convert_csc: bool = True, backed_only: bool = False) -> dict[str, Any]:
@@ -432,18 +573,33 @@ def main():
                     help="force backed-only mode: X stays on disk, no normalisation/DE, "
                          "peak RAM ~2-3 GB regardless of file size (auto-triggered when "
                          "file > 0.66x available RAM)")
+    ap.add_argument("--subsample", type=int, default=None, metavar="N",
+                    help="write a stratified N-cell subsample instead of the full "
+                         "object — the recommended path for files larger than RAM "
+                         "(e.g. 1M+ cell atlases). Peak RAM scales with N, and the "
+                         "output has CSC X for instant per-gene access.")
+    ap.add_argument("--stratify", default="auto", metavar="COL",
+                    help="obs column to stratify --subsample by ('auto' picks a "
+                         "cell-type/cluster column; 'none' samples uniformly)")
     args = ap.parse_args()
 
     out = args.output
     if out is None:
         base = os.path.basename(args.input)
         stem = base[:-5] if base.endswith(".h5ad") else base
-        out = os.path.join(os.path.dirname(args.input) or ".", f"{stem}.prepared.h5ad")
+        suffix = f".sub{args.subsample}.prepared.h5ad" if args.subsample else ".prepared.h5ad"
+        out = os.path.join(os.path.dirname(args.input) or ".", f"{stem}{suffix}")
 
-    manifest = prepare(args.input, out, group_key=args.group_key,
-                       n_top_genes=args.n_top_genes, do_tsne=not args.no_tsne,
-                       convert_csc=not args.no_csc,
-                       backed_only=args.backed_only)
+    if args.subsample:
+        manifest = prepare_subsample(
+            args.input, out, n_cells=args.subsample,
+            stratify_by=(None if args.stratify == "none" else args.stratify),
+            group_key=args.group_key, n_top_genes=args.n_top_genes)
+    else:
+        manifest = prepare(args.input, out, group_key=args.group_key,
+                           n_top_genes=args.n_top_genes, do_tsne=not args.no_tsne,
+                           convert_csc=not args.no_csc,
+                           backed_only=args.backed_only)
 
     man_path = out.replace(".h5ad", ".manifest.json")
     with open(man_path, "w") as f:

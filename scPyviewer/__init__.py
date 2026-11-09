@@ -16,7 +16,7 @@ Quick start (programmatic)::
 Launch the interactive viewer with the ``scpyviewer`` console script, or
 ``python -m streamlit run scPyviewer/app.py``.
 """
-__version__ = "0.5.1"
+__version__ = "0.6.0"
 
 from .api import (  # noqa: E402,F401
     Dataset,

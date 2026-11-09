@@ -315,6 +315,33 @@ def _emb_label(key: str) -> str:
     return key.replace("X_", "").upper()
 
 
+def _grouped_cell_order(ds: Dataset, field: str, max_cells: int | None = None,
+                        seed: int = 0):
+    """Cell indices sorted by group, optionally capped to ~``max_cells`` cells.
+
+    Uses categorical codes (one pass, no per-category ``astype(str)``) and, when
+    a dataset has more cells than ``max_cells``, takes a stratified subsample so
+    per-cell heatmaps/tracks stay renderable and fast on large (e.g. subsampled
+    atlas) objects. Returns ``(order, cats, group_sizes)``.
+    """
+    s = ds.adata.obs[field].astype("category")
+    cats = list(s.cat.categories)
+    codes = np.asarray(s.cat.codes.values)
+    blocks = [np.where(codes == i)[0] for i in range(len(cats))]
+    total = int(sum(len(b) for b in blocks))
+    if max_cells and total > max_cells:
+        rng = np.random.default_rng(seed)
+        blocks = [
+            np.sort(rng.choice(b, max(1, int(round(max_cells * len(b) / total))),
+                               replace=False)) if len(b) > 0 else b
+            for b in blocks
+        ]
+    sizes = [len(b) for b in blocks]
+    order = (np.concatenate(blocks) if blocks
+             else np.array([], dtype=int))
+    return order, cats, sizes
+
+
 # ------------------------------------------------------------------ plots
 def plot_embedding(
     ds: Dataset,
@@ -914,6 +941,7 @@ def plot_heatmap(
     standard_scale: str | None = None,
     swap_axes: bool = False,
     show_group_bar: bool = True,
+    max_cells: int = 2000,
     # typography
     title: str | None = None,
     title_fontsize: float = 11,
@@ -954,6 +982,10 @@ def plot_heatmap(
         If True, genes on X and cells on Y.
     show_group_bar : bool
         Render a color-coded group annotation bar.
+    max_cells : int
+        Cap the number of cells (columns) drawn; above this a stratified
+        subsample is shown. Keeps the figure renderable and fast on large
+        datasets (a heatmap can't display more cells than pixels anyway).
     title : str, optional
         Figure title.
     title_fontsize : float
@@ -979,11 +1011,8 @@ def plot_heatmap(
     if not genes:
         raise ValueError("none of the requested genes are present")
 
-    cats = list(ds.adata.obs[field].astype("category").cat.categories)
     cmap_dict = io.category_colors(ds.adata, field) or {}
-    order = np.concatenate([
-        np.where(ds.adata.obs[field].astype(str) == c)[0] for c in cats
-    ])
+    order, cats, group_sizes = _grouped_cell_order(ds, field, max_cells=max_cells)
     gidx = [ds.adata.var_names.get_loc(g) for g in genes]
     layer = ds.adata.layers["lognorm"] if "lognorm" in ds.adata.layers else ds.adata.X
     mat = layer[order][:, gidx]
@@ -1048,8 +1077,7 @@ def plot_heatmap(
 
         if ax_bar is not None:
             # colour strip drawn as a 1×n_cells image so it aligns via sharex
-            sizes = [int(np.sum(ds.adata.obs[field].astype(str) == c)) for c in cats]
-            boundaries = np.cumsum([0] + sizes)
+            boundaries = np.cumsum([0] + group_sizes)
             codes = np.zeros(len(order), dtype=int)
             for i in range(len(cats)):
                 codes[boundaries[i]:boundaries[i + 1]] = i
@@ -1387,6 +1415,7 @@ def plot_tracksplot(
     vmax: float | None = None,
     show_group_labels: bool = True,
     track_height: float = 0.4,
+    max_cells: int = 2000,
     # typography
     title: str | None = None,
     title_fontsize: float = 11,
@@ -1420,6 +1449,9 @@ def plot_tracksplot(
         Annotate group boundaries at the bottom.
     track_height : float
         Height of each gene track in inches.
+    max_cells : int
+        Cap the number of cells drawn; above this a stratified subsample is
+        shown so tracks stay renderable and fast on large datasets.
     title : str, optional
         Figure title.
     title_fontsize : float
@@ -1441,11 +1473,7 @@ def plot_tracksplot(
     if not genes:
         raise ValueError("none of the requested genes are present")
 
-    cats = list(ds.adata.obs[field].astype("category").cat.categories)
-    order = np.concatenate([
-        np.where(ds.adata.obs[field].astype(str) == c)[0] for c in cats
-    ])
-    group_sizes = [int(np.sum(ds.adata.obs[field].astype(str) == c)) for c in cats]
+    order, cats, group_sizes = _grouped_cell_order(ds, field, max_cells=max_cells)
     boundaries = np.cumsum([0] + group_sizes)
     n_cells = len(order)
 

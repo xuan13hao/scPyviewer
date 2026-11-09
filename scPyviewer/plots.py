@@ -41,7 +41,7 @@ def embedding_scatter(adata, embedding: str, color_field: str | None = None,
 
     if gene:
         df["expr"] = io.gene_vector(adata, gene, layer)[idx]
-        fig = px.scatter(df, x="x", y="y", color="expr",
+        fig = px.scatter(df, x="x", y="y", color="expr", render_mode="webgl",
                          color_continuous_scale=_CONTINUOUS, labels=lab,
                          title=title or f"{gene} ({embedding.replace('X_', '').upper()})")
         fig.update_coloraxes(colorbar_title="expr")
@@ -51,19 +51,19 @@ def embedding_scatter(adata, embedding: str, color_field: str | None = None,
         if is_cat:
             df["c"] = np.asarray(vals).astype(str)
             cmap = io.category_colors(adata, color_field)
-            fig = px.scatter(df, x="x", y="y", color="c", labels=lab,
+            fig = px.scatter(df, x="x", y="y", color="c", labels=lab, render_mode="webgl",
                              color_discrete_map=cmap,
                              category_orders={"c": sorted(df["c"].unique())},
                              title=title or f"{color_field} ({embedding.replace('X_', '').upper()})")
             fig.update_layout(legend_title_text=color_field)
         else:
             df["c"] = np.asarray(vals, dtype=float)
-            fig = px.scatter(df, x="x", y="y", color="c",
+            fig = px.scatter(df, x="x", y="y", color="c", render_mode="webgl",
                              color_continuous_scale=_CONTINUOUS, labels=lab,
                              title=title or f"{color_field} ({embedding.replace('X_', '').upper()})")
             fig.update_coloraxes(colorbar_title=color_field)
     else:
-        fig = px.scatter(df, x="x", y="y", labels=lab, title=title)
+        fig = px.scatter(df, x="x", y="y", labels=lab, title=title, render_mode="webgl")
         fig.update_traces(marker_color="lightgrey")
 
     fig.update_traces(marker=_POINT)

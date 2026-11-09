@@ -301,26 +301,61 @@ Run `./run.sh api-demo` for a worked end-to-end example → `results/api_demo/`.
 
 ---
 
-## Large-dataset support (> 5 GB files)
+## Large-dataset support (atlases larger than RAM)
 
-### Viewer — backed mode (automatic)
+### Recommended: subsample once, then explore instantly
 
-Files larger than 500 MB are opened with `backed='r'` so the expression matrix `X` stays on disk and is read column-by-column on demand. Only embeddings, metadata, and graphs enter RAM. Typical viewer peak memory on a 6 GB dataset is **< 500 MB**.
+For atlases far larger than RAM (e.g. a **1.3 M-cell, 12 GB** file on a laptop), the fast path is a one-time stratified subsample. It streams the file in **bounded memory** (peak RAM scales with the subsample size, not the file) and writes a small, viewer-ready object with `X` in **CSC** format for instant per-gene access:
 
 ```bash
-SCPYVIEWER_BACKED_BYTES=1000000000 ./run.sh app   # back files > 1 GB
+scpyviewer-prepare Aging_Cohort.h5ad --subsample 50000          # ~50k cells, stratified by cell type
+scpyviewer-prepare Aging_Cohort.h5ad --subsample 50000 --stratify donor_id
 ```
 
-### Prepare — backed-only mode (auto or explicit)
+Measured on a **1,332,155 × 34,176** CSR atlas (12 GB) on a **7.7 GB-RAM** laptop:
 
-If the file is larger than 0.66× available RAM, `prepare.py` automatically switches to backed-only mode:
+| step | time | peak RAM |
+|---|---|---|
+| `--subsample 12000` (stratified + normalize + DE) | **55 s** | **2.6 GB** |
+| `load_dataset` on the result | 2.6 s | 1.5 GB |
+| gene coloring / violin / bar | **< 0.6 s** | 1.6 GB |
+| dot plot (6 genes × 25 types) | 2.5 s | 1.6 GB |
 
-- Opens the file with `backed='r'` — `X` never enters RAM
-- Computes UMAP from any pre-existing embedding (`X_uce`, `X_scvi`, …)
-- Streams `X` directly from the source file on write
-- Peak RAM: **≈ 2–6 GB** regardless of file size
+A stratified 50–100k-cell subsample reproduces group composition, embeddings, and per-group expression statistics of the full atlas — and a UMAP of a million cells overplots into a blob anyway.
 
-In backed-only mode, DE markers are skipped (they require `X` in RAM).
+### Explore a huge atlas in the web viewer
+
+Same idea for the Streamlit app — subsample once, then point the viewer at it. The embedding scatter renders with **WebGL** and is capped at `SCPYVIEWER_MAX_SCATTER` points (default 200k), so interaction stays smooth:
+
+```bash
+# 1. subsample once (low memory, streamed) into a dedicated folder
+mkdir -p ~/sc_view
+scpyviewer-prepare /path/to/Aging_Cohort.h5ad \
+    --subsample 50000 --stratify cell_type \
+    -o ~/sc_view/Aging_Cohort.sub.prepared.h5ad
+
+# 2. launch the viewer on that folder
+scpyviewer --data-dir ~/sc_view        # open http://localhost:8501
+```
+
+Then pick the subsampled dataset in the sidebar — embedding, gene coloring, dot plots, and composition are all sub-second at ~1.5–2 GB RAM. Tuning knobs:
+
+```bash
+SCPYVIEWER_MAX_SCATTER=100000 scpyviewer --data-dir ~/sc_view   # fewer scatter points
+SCPYVIEWER_BACKED_BYTES=2000000000 scpyviewer --data-dir ~/sc_view  # raise in-memory cutoff
+```
+
+Pointing the app directly at the raw 12 GB file still works (it opens backed and never OOMs), but per-gene coloring then requires a full-file scan — use a subsample for interactive work.
+
+### Full-object modes (when you need every cell)
+
+- **Viewer — RAM-aware loading**: files load fully into memory when they comfortably fit (≈3× on-disk size < available RAM); otherwise they open `backed='r'`. Backed per-gene access is **memory-bounded** — CSC files read the column directly, CSR files are streamed in row-blocks (constant RAM) rather than loading the whole matrix. Note: a dense CSR column still requires a full-file scan per gene, so subsampling is preferred for interactivity.
+
+  ```bash
+  SCPYVIEWER_BACKED_BYTES=1000000000 ./run.sh app   # raise the in-memory cutoff
+  ```
+
+- **Prepare — backed-only mode** (auto when file > 0.66× available RAM): keeps `X` on disk, computes UMAP from any pre-existing embedding, peak RAM ≈ 2–6 GB. DE markers are skipped (they need `X` in RAM).
 
 ---
 

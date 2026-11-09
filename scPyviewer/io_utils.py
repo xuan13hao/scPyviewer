@@ -42,16 +42,33 @@ def discover_datasets(data_dir: str) -> dict[str, str]:
 _BACKED_THRESHOLD = int(os.environ.get("SCPYVIEWER_BACKED_BYTES", 500_000_000))  # 500 MB
 
 
-def load_adata(path: str):
-    """Load an AnnData from disk.
+def _fits_in_ram(size_bytes: int) -> bool:
+    """True if a file of ``size_bytes`` can be loaded fully into RAM comfortably.
 
-    Files larger than SCPYVIEWER_BACKED_BYTES (default 500 MB) are opened in
-    backed='r' mode so the expression matrix stays on disk and is read
-    column-by-column on demand.  Falls back to a full in-memory load if the
-    backed open fails (e.g. the file has uns entries with null encodings from
-    older scanpy versions — re-running prepare.py on the file fixes this).
+    A sparse ``.h5ad`` expands to roughly 2–3× its on-disk size in memory, so we
+    require that headroom against currently-available RAM.  Falls back to a
+    conservative ``False`` (prefer backed) when available RAM can't be queried.
     """
-    if os.path.getsize(path) > _BACKED_THRESHOLD:
+    try:
+        import psutil
+        return size_bytes * 3 < psutil.virtual_memory().available
+    except Exception:
+        return False
+
+
+def load_adata(path: str):
+    """Load an AnnData from disk, choosing in-memory vs. backed by RAM headroom.
+
+    Small files (< SCPYVIEWER_BACKED_BYTES, default 500 MB) always load into
+    memory.  Larger files load into memory **only if they comfortably fit in
+    available RAM** (≈3× on-disk size); otherwise they open in ``backed='r'``
+    mode so the matrix stays on disk.  This keeps a subsampled 1-GB object fast
+    (in-memory) while a 12-GB atlas stays memory-safe (backed).  Falls back to a
+    full load if the backed open fails (e.g. null-encoded ``uns`` from older
+    scanpy — re-run prepare.py to fix).
+    """
+    size = os.path.getsize(path)
+    if size > _BACKED_THRESHOLD and not _fits_in_ram(size):
         try:
             return sc.read_h5ad(path, backed="r")
         except Exception:
@@ -105,37 +122,59 @@ def embedding_2d(adata, key: str) -> np.ndarray:
     return X[:, :2]
 
 
+def _read_backed_column(X, gene_idx: int, n_obs: int) -> np.ndarray:
+    """Read one gene column from a backed sparse dataset with bounded memory.
+
+    A **CSC** backed dataset slices a column cheaply.  A **CSR** backed dataset
+    would load the *entire* matrix if column-sliced (anndata falls back to
+    ``to_memory`` — e.g. a 1M-cell file tries to allocate tens of GB), so we
+    stream row-blocks sized to ~128 MB and pull the column from each block.
+    Peak RAM is one block, independent of file size.
+    """
+    fmt = getattr(X, "format", None)
+    if fmt == "csc":
+        c = X[:, gene_idx]
+        return c.toarray().ravel() if sp.issparse(c) else np.asarray(c).ravel()
+    # CSR or unknown format: chunked row-block streaming.
+    try:
+        nnz = X.group["data"].shape[0]
+        per_row = max(1.0, nnz / max(1, n_obs)) * 12.0  # bytes/row (data + indices)
+        block = int(np.clip(128e6 / per_row, 1000, 100_000))
+    except Exception:
+        block = int(os.environ.get("SCPYVIEWER_STREAM_ROWS", 20_000))
+    out = np.empty(n_obs, dtype=np.float32)
+    for r0 in range(0, n_obs, block):
+        r1 = min(r0 + block, n_obs)
+        sub = X[r0:r1]
+        c = sub[:, gene_idx]
+        out[r0:r1] = c.toarray().ravel() if sp.issparse(c) else np.asarray(c).ravel()
+    return out
+
+
 def gene_vector(adata, gene: str, layer: str = "lognorm") -> np.ndarray:
     """Return the expression vector for a single gene as a 1-D dense float32 array.
 
     Works with in-memory, sparse, and h5py-backed AnnData objects (including
-    backed views).  For backed datasets the expression matrix is read column-
-    by-column from disk so only ~n_cells * 4 bytes enter RAM at a time.
+    backed views).  Backed access is memory-bounded: CSC files read the column
+    directly; CSR files are streamed in row-blocks so peak RAM stays ~constant
+    regardless of file size (see :func:`_read_backed_column`).  For fast,
+    low-memory viewing of atlases larger than RAM, prefer
+    ``scpyviewer-prepare --subsample N`` which writes a small CSC object.
     """
     if gene not in adata.var_names:
         raise KeyError(gene)
     gene_idx = adata.var_names.get_loc(gene)
 
     if getattr(adata, "isbacked", False):
-        # Backed mode: always use X (layers are fully loaded into RAM in
-        # anndata 0.11.x backed mode, so we skip them).
-        # For backed *views*, anndata 0.11.x re-implements the obs selection
-        # as a 2-D fancy index that reads the entire row slice before
-        # filtering — that blows the memory budget. Instead we read the parent
-        # X column (one disk seek for CSC format) and apply the obs index
-        # ourselves as a cheap in-memory boolean/integer fancy index.
+        # Backed mode uses X (backed layers load fully into RAM in anndata
+        # 0.11.x). For backed *views* we read the parent column (bounded) then
+        # apply the obs index as a cheap in-memory fancy index.
         if adata.is_view:
             ref = adata._adata_ref
-            raw = ref.X[:, gene_idx]
-            col = raw.toarray().ravel() if sp.issparse(raw) else np.asarray(raw).ravel()
-            oidx = adata._oidx  # bool or int array stored by the view
-            if hasattr(oidx, "dtype") and oidx.dtype == bool:
-                col = col[oidx]
-            else:
-                col = col[np.asarray(oidx)]
+            col = _read_backed_column(ref.X, gene_idx, ref.n_obs)
+            col = col[np.asarray(adata._oidx)]
         else:
-            raw = adata.X[:, gene_idx]
-            col = raw.toarray().ravel() if sp.issparse(raw) else np.asarray(raw).ravel()
+            col = _read_backed_column(adata.X, gene_idx, adata.n_obs)
     else:
         mat = adata.layers[layer] if layer in adata.layers else adata.X
         raw = mat[:, gene_idx]
