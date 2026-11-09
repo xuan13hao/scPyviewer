@@ -11,6 +11,42 @@ Every actively maintained tool in this space (ShinyCell, ScRDAVis, sCIRCLE/scVie
 
 ---
 
+## Gallery
+
+Publication-quality figures from the programmatic API, rendered on the chicken-heart atlas with `sv.set_publication_style()` (Okabe-Ito colour-blind-safe palette). Every figure below is produced by a single `plot_*` call — full code in **[tutorial.ipynb](tutorial.ipynb)**.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/embedding_celltype.png" width="100%"><br><sub><code>plot_embedding(ds, color="cell_type")</code></sub></td>
+    <td align="center"><img src="docs/images/embedding_gene.png" width="100%"><br><sub><code>plot_embedding(ds, gene="MYL2")</code></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/dotplot.png" width="100%"><br><sub><code>plot_dotplot(ds, markers)</code></sub></td>
+    <td align="center"><img src="docs/images/heatmap.png" width="100%"><br><sub><code>plot_heatmap(ds, markers)</code></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/violin.png" width="100%"><br><sub><code>plot_violin(ds, "MYL2")</code></sub></td>
+    <td align="center"><img src="docs/images/composition.png" width="100%"><br><sub><code>plot_composition(ds)</code></sub></td>
+  </tr>
+</table>
+
+### New plot genres (v0.4.1+)
+
+Publication figure types beyond the scanpy defaults — grouped comparison bars, developmental trend lines, multi-gene radar, and 3-D embeddings — each a single `plot_*` call:
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/bar.png" width="100%"><br><sub><code>plot_bar(ds, "MYL2", sort="descending", annotate=True)</code><br>grouped mean ± SEM, value labels</sub></td>
+    <td align="center"><img src="docs/images/trend.png" width="100%"><br><sub><code>plot_trend(ds, "MYL2", x="day", group="cell_type")</code><br>expression trend over timepoints, error bands</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/radar.png" width="100%"><br><sub><code>plot_radar(ds, markers, scale="var")</code><br>multi-gene signature per group</sub></td>
+    <td align="center"><img src="docs/images/embedding_3d.png" width="100%"><br><sub><code>plot_embedding_3d(ds, color="cell_type", embedding="X_pca")</code><br>3-D embedding scatter</sub></td>
+  </tr>
+</table>
+
+---
+
 ## Highlights
 
 | | scPyviewer | ShinyCell | ScRDAVis | sCIRCLE/scViewer |
@@ -161,6 +197,25 @@ sv.export_tables(ds,  "out/tables", formats=["csv", "tsv", "xlsx"])
 sv.set_style(font_family="Arial", base_fontsize=11, dpi=300)
 # applies to all subsequent plot_* calls in the session
 ```
+
+### Publication style (v0.4.1+)
+
+One call installs a publication-quality global style — Helvetica stack, no
+top/right spines, 300 dpi, frameless legends, editable SVG text — and a
+qualitative colour cycle that every categorical `plot_*` picks up automatically:
+
+```python
+sv.set_publication_style()                        # Okabe-Ito (colour-blind safe), 300 dpi
+sv.set_publication_style(palette="publication", dpi=600)  # in-house muted set, dense panels
+
+sv.get_palette("okabe-ito")   # -> ['#E69F00', '#56B4E9', '#009E73', ...]
+```
+
+Two built-in palettes: `"okabe-ito"` (the colour-universal Okabe & Ito set) and
+`"publication"` (a muted print-friendly in-house set). The style conventions are
+standard scientific-figure practice, implemented independently and inspired by
+[ChenLiu-1996/figures4papers](https://github.com/ChenLiu-1996/figures4papers)
+(no code is reused, so scPyviewer remains MIT-licensed).
 
 ### API parameter reference (v0.4.0)
 

@@ -16,12 +16,17 @@ Quick start (programmatic)::
 Launch the interactive viewer with the ``scpyviewer`` console script, or
 ``python -m streamlit run scPyviewer/app.py``.
 """
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 from .api import (  # noqa: E402,F401
     Dataset,
     load_dataset,
     set_style,
+    set_publication_style,
+    get_palette,
+    OKABE_ITO,
+    PUBLICATION,
+    PALETTES,
     plot_embedding,
     plot_multigene,
     plot_violin,
@@ -32,6 +37,10 @@ from .api import (  # noqa: E402,F401
     plot_stacked_violin,
     plot_tracksplot,
     plot_correlation,
+    plot_bar,
+    plot_trend,
+    plot_radar,
+    plot_embedding_3d,
     markers_table,
     composition_table,
     metadata_table,
@@ -42,11 +51,13 @@ from .api import (  # noqa: E402,F401
 __all__ = [
     "__version__",
     "Dataset", "load_dataset",
-    "set_style",
+    "set_style", "set_publication_style", "get_palette",
+    "OKABE_ITO", "PUBLICATION", "PALETTES",
     "plot_embedding", "plot_multigene", "plot_violin", "plot_dotplot",
     "plot_composition",
     "plot_heatmap", "plot_matrixplot", "plot_stacked_violin",
     "plot_tracksplot", "plot_correlation",
+    "plot_bar", "plot_trend", "plot_radar", "plot_embedding_3d",
     "markers_table", "composition_table", "metadata_table",
     "export_figures", "export_tables",
 ]

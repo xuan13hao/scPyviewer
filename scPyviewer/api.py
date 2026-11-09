@@ -102,6 +102,144 @@ def set_style(
         mpl.rcParams["figure.dpi"] = dpi
 
 
+# ------------------------------------------------------------------ palettes
+# Qualitative palettes for categorical coloring. These are plain colour-value
+# lists (facts, not creative code) written from scratch for scPyviewer.
+#
+# "okabe-ito" is the Okabe & Ito (2008) colour-universal design palette, an
+# established community standard for colour-blind-safe figures.
+# "publication" is an in-house muted print-friendly set.
+#
+# The publication *conventions* implemented by set_publication_style() below
+# (Helvetica stack, no top/right spines, dpi=300, editable SVG text, frameless
+# legends) are common scientific-figure practice; they were re-implemented
+# independently and are inspired by — not copied from —
+# https://github.com/ChenLiu-1996/figures4papers (CC-BY-NC-4.0). No code from
+# that project is used here, so scPyviewer remains MIT-licensed.
+OKABE_ITO = [
+    "#E69F00", "#56B4E9", "#009E73", "#F0E442",
+    "#0072B2", "#D55E00", "#CC79A7", "#000000",
+]
+PUBLICATION = [
+    "#2B6CB0", "#C53030", "#2F855A", "#6B46C1",
+    "#B7791F", "#319795", "#B83280", "#4A5568",
+]
+PALETTES = {"okabe-ito": OKABE_ITO, "publication": PUBLICATION}
+
+
+def get_palette(name: str = "okabe-ito") -> list:
+    """Return a named qualitative colour palette as a list of hex strings.
+
+    Parameters
+    ----------
+    name : {"okabe-ito", "publication"}
+        ``"okabe-ito"`` is the colour-blind-safe Okabe & Ito palette;
+        ``"publication"`` is a muted print-friendly in-house set.
+
+    Examples
+    --------
+    >>> sv.get_palette("okabe-ito")[:3]
+    ['#E69F00', '#56B4E9', '#009E73']
+    """
+    if name not in PALETTES:
+        raise ValueError(
+            f"unknown palette {name!r}; choose from {sorted(PALETTES)}")
+    return list(PALETTES[name])
+
+
+def set_publication_style(
+    palette: str = "okabe-ito",
+    dpi: int = 300,
+    base_fontsize: float = 12,
+    font_family: str | None = "Helvetica",
+    linewidth: float = 1.8,
+    bold_titles: bool = True,
+    bold_labels: bool = False,
+    usetex: bool = False,
+    editable_svg_text: bool = True,
+) -> None:
+    """Apply a publication-quality global style to all subsequent plots.
+
+    Sets matplotlib ``rcParams`` implementing common scientific-figure
+    conventions and installs a qualitative colour cycle. Because the existing
+    ``plot_*`` functions fall back to the active colour cycle when a dataset
+    has no stored ``*_colors`` palette, calling this once makes every
+    categorical plot adopt ``palette`` automatically — no per-call changes
+    needed.
+
+    The conventions here (Helvetica stack, no top/right spines, 300 dpi,
+    frameless legends, editable SVG text) are standard practice and were
+    implemented independently; they are inspired by, but contain no code from,
+    https://github.com/ChenLiu-1996/figures4papers. scPyviewer stays MIT.
+
+    Parameters
+    ----------
+    palette : {"okabe-ito", "publication"}
+        Qualitative colour cycle for categorical coloring.
+    dpi : int
+        Default figure and save resolution (300 for print; use 600 for dense
+        panels).
+    base_fontsize : float
+        Base font size in points.
+    font_family : str, optional
+        Preferred font; prepended to the sans-serif stack so it degrades
+        gracefully to Arial/DejaVu Sans if unavailable. Pass ``None`` to keep
+        the current family.
+    linewidth : float
+        Axis spine / tick line width.
+    usetex : bool
+        Render text with LaTeX (requires a working LaTeX install). Off by
+        default so the style works out of the box.
+    editable_svg_text : bool
+        Keep text as selectable text (not paths) in SVG exports, so labels
+        remain editable in Illustrator/Inkscape.
+
+    Examples
+    --------
+    >>> import scPyviewer as sv
+    >>> sv.set_publication_style()                 # Okabe-Ito, 300 dpi
+    >>> sv.set_publication_style(palette="publication", dpi=600)
+    """
+    from cycler import cycler
+
+    colors = get_palette(palette)
+    sans = list(mpl.rcParams.get("font.sans-serif", []))
+    if font_family:
+        # move the preferred font to the front of the fallback stack
+        sans = [font_family] + [f for f in sans if f != font_family]
+
+    mpl.rcParams.update({
+        "font.family": "sans-serif",
+        "font.sans-serif": sans,
+        "font.size": base_fontsize,
+        "axes.prop_cycle": cycler(color=colors),
+        "axes.titlesize": base_fontsize + 2,
+        "axes.titleweight": "bold" if bold_titles else "normal",
+        "axes.labelsize": base_fontsize,
+        "axes.labelweight": "bold" if bold_labels else "normal",
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.linewidth": linewidth,
+        # crisp outward ticks matching the axis weight
+        "xtick.direction": "out",
+        "ytick.direction": "out",
+        "xtick.major.width": linewidth,
+        "ytick.major.width": linewidth,
+        "xtick.major.size": 4.0,
+        "ytick.major.size": 4.0,
+        "legend.frameon": False,
+        "legend.fontsize": base_fontsize - 1,
+        # solid white background so figures read on GitHub light/dark themes
+        "figure.facecolor": "white",
+        "savefig.facecolor": "white",
+        "figure.dpi": dpi,
+        "savefig.dpi": dpi,
+        "savefig.bbox": "tight",
+        "svg.fonttype": "none" if editable_svg_text else "path",
+        "text.usetex": usetex,
+    })
+
+
 # ------------------------------------------------------------------ handle
 @dataclass
 class Dataset:
@@ -468,7 +606,7 @@ def plot_violin(
     groups = ds.adata.obs[field].astype(str).values
     data = [expr[groups == s] for s in order]
     cmap_dict = palette or io.category_colors(ds.adata, field) or {}
-    colors = [cmap_dict.get(s, "#4d9221") for s in order]
+    colors = [cmap_dict.get(s, f"C{i}") for i, s in enumerate(order)]
 
     with _font_ctx(font_family):
         fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
@@ -657,6 +795,8 @@ def plot_composition(
     palette: dict | None = None,
     bar_width: float = 0.8,
     sort_groups: bool = False,
+    edgecolor: str | None = "black",
+    edge_width: float = 0.6,
     # typography
     title: str | None = None,
     title_fontsize: float = 11,
@@ -690,6 +830,11 @@ def plot_composition(
         Bar width (0–1).
     sort_groups : bool
         Sort stacked groups alphabetically.
+    edgecolor : str or None
+        Outline colour for each bar segment (default ``"black"`` for a crisp,
+        print-ready look). Pass ``None`` for borderless flat bars.
+    edge_width : float
+        Bar outline line width when ``edgecolor`` is set.
     title : str, optional
         Override figure title.
     title_fontsize : float
@@ -727,7 +872,9 @@ def plot_composition(
         bottom = np.zeros(len(frac)); x = np.arange(len(frac))
         for c in frac.columns:
             ax.bar(x, frac[c].values, bottom=bottom, width=bar_width,
-                   color=cmap_dict.get(c, None), label=c, linewidth=0)
+                   color=cmap_dict.get(c, None), label=c,
+                   edgecolor=edgecolor if edgecolor else "none",
+                   linewidth=edge_width if edgecolor else 0)
             bottom += frac[c].values
 
         ax.set_xticks(x)
@@ -851,71 +998,86 @@ def plot_heatmap(
         mx = mat.max(axis=1, keepdims=True)
         mat = (mat - mn) / np.where(mx - mn > 0, mx - mn, 1.0)
 
-    if swap_axes:
-        mat = mat.T
+    # Display orientation: default = genes as ROWS (Y), cells as COLUMNS (X),
+    # sorted by group. swap_axes=True flips to genes on X, cells on Y.
+    # (mat is (n_cells, n_genes); transpose for the default genes-as-rows view.)
+    disp = mat.T if not swap_axes else mat
+    show_bar = show_group_bar and not swap_axes
 
-    n_genes, n_cells = len(genes), len(order)
-    if swap_axes:
-        n_genes, n_cells = n_cells, n_genes
-    bar_h = 0.06 if show_group_bar else 0.0
-    auto_w = max(5.0, n_cells * 0.02)
-    auto_h = max(3.0, n_genes * 0.25) + bar_h * max(3.0, n_genes * 0.25)
-    fs = figsize if figsize is not None else (auto_w, auto_h)
+    if figsize is not None:
+        fs = figsize
+    elif not swap_axes:
+        fs = (min(14.0, max(5.0, len(order) * 0.02)),
+              max(2.6, len(genes) * 0.4 + 1.2))
+    else:
+        fs = (max(4.0, len(genes) * 0.5 + 2.0),
+              min(12.0, max(3.0, len(order) * 0.02)))
 
-    height_ratios = [bar_h, 1 - bar_h] if show_group_bar and not swap_axes else [1]
-    n_rows = 2 if show_group_bar and not swap_axes else 1
+    from matplotlib.colors import ListedColormap
+    from matplotlib.patches import Patch
 
     with _font_ctx(font_family):
-        fig, axes = plt.subplots(
-            n_rows, 1, figsize=fs, dpi=dpi,
-            gridspec_kw={"height_ratios": height_ratios, "hspace": 0.01}
-            if n_rows == 2 else {},
-        )
-        ax_bar = axes[0] if n_rows == 2 else None
-        ax = axes[1] if n_rows == 2 else axes
-
-        im = ax.imshow(mat if not swap_axes else mat,
-                       aspect="auto", cmap=cmap,
-                       vmin=vmin, vmax=vmax, interpolation="nearest")
-        if swap_axes:
-            ax.set_xticks(range(len(genes)))
-            ax.set_xticklabels(genes, rotation=45, ha="right",
-                               style="italic", fontsize=tick_fontsize)
-            ax.set_yticks([])
-            ax.set_xlabel(xlabel or "Gene", fontsize=xlabel_fontsize)
-            ax.set_ylabel(ylabel or f"Cells ({n_cells:,})", fontsize=ylabel_fontsize)
+        if show_bar:
+            # group strip shares the cell axis with the heatmap so they align
+            fig, (ax_bar, ax) = plt.subplots(
+                2, 1, figsize=fs, dpi=dpi, sharex=True,
+                gridspec_kw={"height_ratios": [0.05, 0.95], "hspace": 0.04})
         else:
+            fig, ax = plt.subplots(figsize=fs, dpi=dpi)
+            ax_bar = None
+
+        im = ax.imshow(disp, aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax,
+                       interpolation="nearest")
+
+        if not swap_axes:
             ax.set_yticks(range(len(genes)))
             ax.set_yticklabels(genes, style="italic", fontsize=tick_fontsize)
             ax.set_xticks([])
-            ax.set_xlabel(xlabel or f"Cells ({len(order):,})", fontsize=xlabel_fontsize)
+            ax.set_xlabel(xlabel or f"Cells (n = {len(order):,}, grouped by {field})",
+                          fontsize=xlabel_fontsize)
             ax.set_ylabel(ylabel or "Gene", fontsize=ylabel_fontsize)
+        else:
+            ax.set_xticks(range(len(genes)))
+            ax.set_xticklabels(genes, rotation=45, ha="right", style="italic",
+                               fontsize=tick_fontsize)
+            ax.set_yticks([])
+            ax.set_xlabel(xlabel or "Gene", fontsize=xlabel_fontsize)
+            ax.set_ylabel(ylabel or f"Cells (n = {len(order):,})",
+                          fontsize=ylabel_fontsize)
         ax.tick_params(labelsize=tick_fontsize)
 
         if ax_bar is not None:
-            boundaries = [0] + list(np.cumsum(
-                [np.sum(ds.adata.obs[field].astype(str) == c) for c in cats]))
-            for i, c in enumerate(cats):
-                color = cmap_dict.get(c, f"C{i}")
-                ax_bar.barh(0, boundaries[i + 1] - boundaries[i],
-                            left=boundaries[i], height=1,
-                            color=color, linewidth=0)
-                mid = (boundaries[i] + boundaries[i + 1]) / 2
-                ax_bar.text(mid, 0.5, c, ha="center", va="center",
-                            fontsize=group_label_fontsize, color="white",
-                            fontweight="bold")
-            ax_bar.set_xlim(0, len(order))
-            ax_bar.axis("off")
+            # colour strip drawn as a 1×n_cells image so it aligns via sharex
+            sizes = [int(np.sum(ds.adata.obs[field].astype(str) == c)) for c in cats]
+            boundaries = np.cumsum([0] + sizes)
+            codes = np.zeros(len(order), dtype=int)
+            for i in range(len(cats)):
+                codes[boundaries[i]:boundaries[i + 1]] = i
+            bar_colors = [cmap_dict.get(c, f"C{i}") for i, c in enumerate(cats)]
+            ax_bar.imshow(codes.reshape(1, -1), aspect="auto",
+                          cmap=ListedColormap(bar_colors),
+                          vmin=0, vmax=max(len(cats) - 1, 1),
+                          interpolation="nearest")
+            ax_bar.set_xticks([]); ax_bar.set_yticks([])
+            for s in ax_bar.spines.values():
+                s.set_visible(False)
+            # full group legend to the right — scales cleanly to many categories
+            handles = [Patch(facecolor=bar_colors[i], label=c)
+                       for i, c in enumerate(cats)]
+            ax.legend(handles=handles, title=field, loc="upper left",
+                      bbox_to_anchor=(1.14, 1.0), frameon=False,
+                      fontsize=group_label_fontsize,
+                      title_fontsize=group_label_fontsize + 1)
 
-        cb = fig.colorbar(im, ax=ax, fraction=0.03, pad=0.01)
+        cb_target = [ax_bar, ax] if ax_bar is not None else ax
+        cb = fig.colorbar(im, ax=cb_target, fraction=0.025, pad=0.015)
         cb.set_label(colorbar_label or (
             f"scaled expr ({standard_scale})" if standard_scale
             else "log-norm expression"), fontsize=colorbar_fontsize)
         cb.ax.tick_params(labelsize=colorbar_fontsize - 1)
 
-        ax.set_title(title or f"Expression heatmap — {field}",
-                     fontsize=title_fontsize)
-        fig.tight_layout()
+        fig.suptitle(title or f"Expression heatmap — {field}",
+                     fontsize=title_fontsize, y=1.0)
     return fig
 
 
@@ -1475,6 +1637,501 @@ def plot_correlation(
     return fig
 
 
+# --------------------------------------------------- figures4papers-style plots
+# plot_bar / plot_trend / plot_radar / plot_embedding_3d bring common
+# publication figure *genres* (grouped comparison bars, trend lines, radar,
+# 3-D scatter) into the single-cell domain. Written from scratch for scPyviewer;
+# the conventions are inspired by, but contain no code from,
+# https://github.com/ChenLiu-1996/figures4papers. scPyviewer stays MIT.
+def _gene_group_means(ds: Dataset, genes: list, field: str) -> np.ndarray:
+    """Return a (n_groups × n_genes) matrix of mean log-norm expression."""
+    from scipy import sparse as sp
+    cats = list(ds.adata.obs[field].astype("category").cat.categories)
+    gidx = [ds.adata.var_names.get_loc(g) for g in genes]
+    layer = ds.adata.layers["lognorm"] if "lognorm" in ds.adata.layers else ds.adata.X
+    grp = ds.adata.obs[field].astype(str).values
+    means = np.zeros((len(cats), len(genes)))
+    for i, c in enumerate(cats):
+        sub = layer[grp == c][:, gidx]
+        sub = sub.toarray() if sp.issparse(sub) else np.asarray(sub, dtype=float)
+        means[i] = sub.mean(axis=0) if sub.shape[0] else 0.0
+    return means
+
+
+def plot_bar(
+    ds: Dataset,
+    gene: str,
+    group: str | None = None,
+    # layout
+    figsize: tuple = (7.2, 4.4),
+    dpi: int = 150,
+    # rendering
+    error: str = "sem",
+    sort: str | None = None,
+    palette: dict | None = None,
+    bar_width: float = 0.8,
+    edgecolor: str | None = "black",
+    edge_width: float = 1.2,
+    capsize: float = 3.0,
+    annotate: bool = False,
+    annotation_fmt: str = ".2f",
+    annotation_fontsize: float = 8,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 12,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    xlabel_fontsize: float = 10,
+    ylabel_fontsize: float = 10,
+    tick_fontsize: float = 9,
+    rotation: int = 30,
+    font_family: str | None = None,
+):
+    """Grouped comparison bar chart: mean gene expression per group ± error bar.
+
+    A publication-style quantitative bar plot (black-edged bars, error bars,
+    optional value labels) — the single-cell analogue of the benchmark bar
+    charts common in ML/biology papers.
+
+    Parameters
+    ----------
+    gene : str
+        Gene whose mean expression is compared across groups.
+    group : str, optional
+        ``obs`` grouping column (defaults to ``ds.group_key``).
+    error : {"sem", "std", "none"}
+        Error-bar statistic: standard error of the mean, standard deviation,
+        or no error bars.
+    sort : {None, "ascending", "descending"}
+        Order bars by mean expression, or keep category order (``None``).
+    palette : dict, optional
+        ``{label: color}`` override.
+    bar_width : float
+        Bar width (0–1).
+    edgecolor : str or None
+        Bar outline colour (default ``"black"``); ``None`` for borderless.
+    edge_width : float
+        Bar outline / error-bar line width.
+    capsize : float
+        Error-bar cap size in points.
+    annotate : bool
+        Print each bar's mean value above it.
+    annotation_fmt : str
+        Format string for value labels (e.g. ``".2f"``).
+    annotation_fontsize : float
+        Value-label font size.
+    title, xlabel, ylabel : str, optional
+        Text overrides.
+    title_fontsize, xlabel_fontsize, ylabel_fontsize, tick_fontsize : float
+        Font sizes.
+    rotation : int
+        X-tick label rotation in degrees.
+    font_family : str, optional
+        Font family for this figure only.
+    """
+    if error not in ("sem", "std", "none"):
+        raise ValueError(f"error must be 'sem', 'std', or 'none', got {error!r}")
+    if sort not in (None, "ascending", "descending"):
+        raise ValueError(
+            f"sort must be None, 'ascending', or 'descending', got {sort!r}")
+    field = _group(ds, group)
+    expr = io.gene_vector(ds.adata, gene, "lognorm")
+    grp = ds.adata.obs[field].astype(str).values
+    cats = list(ds.adata.obs[field].astype("category").cat.categories)
+
+    means = np.zeros(len(cats)); errs = np.zeros(len(cats))
+    for i, c in enumerate(cats):
+        v = expr[grp == c]
+        means[i] = v.mean() if len(v) else 0.0
+        if len(v) > 1 and error != "none":
+            sd = v.std(ddof=1)
+            errs[i] = sd / np.sqrt(len(v)) if error == "sem" else sd
+
+    if sort == "ascending":
+        o = np.argsort(means)
+    elif sort == "descending":
+        o = np.argsort(means)[::-1]
+    else:
+        o = np.arange(len(cats))
+    cats = [cats[i] for i in o]; means = means[o]; errs = errs[o]
+
+    cmap_dict = palette or io.category_colors(ds.adata, field) or {}
+    colors = [cmap_dict.get(c, f"C{i}") for i, c in enumerate(cats)]
+
+    with _font_ctx(font_family):
+        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+        x = np.arange(len(cats))
+        ax.bar(x, means, width=bar_width, color=colors,
+               edgecolor=edgecolor if edgecolor else "none",
+               linewidth=edge_width if edgecolor else 0,
+               yerr=errs if error != "none" else None,
+               capsize=capsize, error_kw=dict(lw=edge_width))
+
+        if annotate:
+            top = means + errs
+            pad = 0.02 * (top.max() if top.max() > 0 else 1.0)
+            for xi, m, t in zip(x, means, top):
+                ax.text(xi, t + pad, format(m, annotation_fmt),
+                        ha="center", va="bottom", fontsize=annotation_fontsize)
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(cats, rotation=rotation,
+                           ha="right" if rotation else "center",
+                           fontsize=tick_fontsize)
+        ax.tick_params(axis="y", labelsize=tick_fontsize)
+        ax.set_xlabel(xlabel or field, fontsize=xlabel_fontsize)
+        ax.set_ylabel(ylabel or f"mean {gene} (log-norm)", fontsize=ylabel_fontsize)
+        ax.set_title(title or f"{gene} expression by {field}",
+                     fontsize=title_fontsize, style="italic")
+        for s in ("top", "right"):
+            ax.spines[s].set_visible(False)
+        fig.tight_layout()
+    return fig
+
+
+def plot_trend(
+    ds: Dataset,
+    gene: str,
+    x: str,
+    group: str | None = None,
+    # layout
+    figsize: tuple = (7.6, 4.6),
+    dpi: int = 150,
+    # rendering
+    error: str = "sem",
+    show_band: bool = True,
+    band_alpha: float = 0.18,
+    linewidth: float = 2.0,
+    marker: str | None = "o",
+    markersize: float = 5,
+    palette: dict | None = None,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 12,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    xlabel_fontsize: float = 10,
+    ylabel_fontsize: float = 10,
+    tick_fontsize: float = 9,
+    rotation: int = 0,
+    legend_fontsize: float = 8,
+    legend_title_fontsize: float = 9,
+    font_family: str | None = None,
+):
+    """Trend line: mean gene expression along an ordered ``x`` variable.
+
+    One line per ``group`` level (e.g. cell type) across an ordered ``obs``
+    column such as timepoint or pseudotime bin, with a shaded error band.
+
+    Parameters
+    ----------
+    gene : str
+        Gene whose mean expression is tracked.
+    x : str
+        Ordered ``obs`` column for the x-axis (numeric, or categorical whose
+        category order defines the sequence).
+    group : str, optional
+        ``obs`` column; one line per level. Pass the same column as ``x`` or a
+        single-level column for a single line. Defaults to ``ds.group_key``.
+    error : {"sem", "std", "none"}
+        Error statistic for the shaded band.
+    show_band : bool
+        Draw the ±error band around each line.
+    band_alpha : float
+        Opacity of the error band.
+    linewidth : float
+        Line width.
+    marker : str or None
+        Point marker at each x position (``None`` for lines only).
+    markersize : float
+        Marker size.
+    palette : dict, optional
+        ``{label: color}`` override.
+    title, xlabel, ylabel : str, optional
+        Text overrides.
+    title_fontsize, xlabel_fontsize, ylabel_fontsize, tick_fontsize : float
+        Font sizes.
+    rotation : int
+        X-tick label rotation in degrees.
+    legend_fontsize, legend_title_fontsize : float
+        Legend font sizes.
+    font_family : str, optional
+        Font family for this figure only.
+    """
+    if error not in ("sem", "std", "none"):
+        raise ValueError(f"error must be 'sem', 'std', or 'none', got {error!r}")
+    if x not in ds.adata.obs.columns:
+        raise KeyError(f"{x!r} is not an obs column")
+    field = _group(ds, group)
+    expr = io.gene_vector(ds.adata, gene, "lognorm")
+    xcol = ds.adata.obs[x]
+
+    # ordered x positions + tick labels
+    if xcol.dtype.name == "category":
+        xlevels = list(xcol.cat.categories)
+        xpos = {lv: i for i, lv in enumerate(xlevels)}
+        positions = np.array([xpos[lv] for lv in xlevels], dtype=float)
+        xkey = xcol.astype(str).values
+        xlevels_str = [str(lv) for lv in xlevels]
+        numeric_x = False
+    elif np.issubdtype(xcol.dtype, np.number):
+        xvals = xcol.values.astype(float)
+        xlevels = sorted(np.unique(xvals))
+        positions = np.array(xlevels, dtype=float)
+        xkey = xvals
+        xlevels_str = [f"{lv:g}" for lv in xlevels]
+        numeric_x = True
+    else:
+        xlevels = sorted(xcol.astype(str).unique())
+        positions = np.arange(len(xlevels), dtype=float)
+        xkey = xcol.astype(str).values
+        xlevels_str = xlevels
+        numeric_x = False
+
+    grp = ds.adata.obs[field].astype(str).values
+    glevels = list(ds.adata.obs[field].astype("category").cat.categories)
+    cmap_dict = palette or io.category_colors(ds.adata, field) or {}
+
+    with _font_ctx(font_family):
+        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+        for gi, gl in enumerate(glevels):
+            gmask = grp == gl
+            ys = np.full(len(xlevels), np.nan); es = np.zeros(len(xlevels))
+            for j, lv in enumerate(xlevels):
+                lv_key = lv if numeric_x else str(lv)
+                m = gmask & (xkey == lv_key)
+                v = expr[m]
+                if len(v):
+                    ys[j] = v.mean()
+                    if len(v) > 1 and error != "none":
+                        sd = v.std(ddof=1)
+                        es[j] = sd / np.sqrt(len(v)) if error == "sem" else sd
+            ok = ~np.isnan(ys)
+            if not ok.any():
+                continue
+            color = cmap_dict.get(gl, f"C{gi}")
+            ax.plot(positions[ok], ys[ok], color=color, lw=linewidth,
+                    marker=marker, markersize=markersize, label=gl)
+            if show_band and error != "none":
+                ax.fill_between(positions[ok], (ys - es)[ok], (ys + es)[ok],
+                                color=color, alpha=band_alpha, linewidth=0)
+
+        ax.set_xticks(positions)
+        ax.set_xticklabels(xlevels_str, rotation=rotation,
+                           ha="right" if rotation else "center",
+                           fontsize=tick_fontsize)
+        ax.tick_params(axis="y", labelsize=tick_fontsize)
+        ax.set_xlabel(xlabel or x, fontsize=xlabel_fontsize)
+        ax.set_ylabel(ylabel or f"mean {gene} (log-norm)", fontsize=ylabel_fontsize)
+        ax.set_title(title or f"{gene} trend across {x}",
+                     fontsize=title_fontsize, style="italic")
+        ax.legend(title=field, loc="upper left", bbox_to_anchor=(1.01, 1.0),
+                  frameon=False, fontsize=legend_fontsize,
+                  title_fontsize=legend_title_fontsize)
+        for s in ("top", "right"):
+            ax.spines[s].set_visible(False)
+        fig.tight_layout()
+    return fig
+
+
+def plot_radar(
+    ds: Dataset,
+    genes: list,
+    group: str | None = None,
+    # rendering
+    scale: str | None = "var",
+    fill_alpha: float = 0.12,
+    linewidth: float = 2.0,
+    palette: dict | None = None,
+    max_groups: int = 8,
+    # layout
+    figsize: tuple = (6.4, 6.4),
+    dpi: int = 150,
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 12,
+    tick_fontsize: float = 9,
+    gene_label_fontsize: float = 9,
+    legend_fontsize: float = 8,
+    legend_title_fontsize: float = 9,
+    font_family: str | None = None,
+):
+    """Radar (spider) plot: mean expression of several genes per group.
+
+    Each group is a polygon over the gene axes — a compact multi-gene
+    signature comparison. With ``scale="var"`` each gene is normalised to
+    [0, 1] across groups so axes are comparable.
+
+    Parameters
+    ----------
+    genes : list[str]
+        Genes forming the radial axes (3 or more recommended).
+    group : str, optional
+        ``obs`` grouping column (defaults to ``ds.group_key``).
+    scale : {"var", None}
+        ``"var"`` scales each gene to [0, 1] across groups; ``None`` uses raw
+        mean log-norm values.
+    fill_alpha : float
+        Opacity of each polygon's fill.
+    linewidth : float
+        Polygon outline width.
+    palette : dict, optional
+        ``{label: color}`` override.
+    max_groups : int
+        Cap on the number of group polygons drawn (keeps the plot readable).
+    figsize : tuple
+        Figure ``(width, height)`` in inches.
+    dpi : int
+        Resolution.
+    title : str, optional
+        Figure title.
+    title_fontsize, tick_fontsize, gene_label_fontsize : float
+        Font sizes for title, radial ticks, and gene axis labels.
+    legend_fontsize, legend_title_fontsize : float
+        Legend font sizes.
+    font_family : str, optional
+        Font family for this figure only.
+    """
+    if scale not in (None, "var"):
+        raise ValueError(f"scale must be None or 'var', got {scale!r}")
+    field = _group(ds, group)
+    genes = [g for g in genes if g in ds.adata.var_names]
+    if len(genes) < 3:
+        raise ValueError("plot_radar needs at least 3 present genes")
+    cats = list(ds.adata.obs[field].astype("category").cat.categories)[:max_groups]
+    means = _gene_group_means(ds, genes, field)[:len(cats)]
+
+    if scale == "var":
+        mn, mx = means.min(axis=0), means.max(axis=0)
+        means = (means - mn) / np.where(mx - mn > 0, mx - mn, 1.0)
+
+    cmap_dict = palette or io.category_colors(ds.adata, field) or {}
+    n = len(genes)
+    angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    angles_closed = np.concatenate([angles, angles[:1]])
+
+    with _font_ctx(font_family):
+        fig = plt.figure(figsize=figsize, dpi=dpi)
+        ax = fig.add_subplot(projection="polar")
+        for i, c in enumerate(cats):
+            vals = np.concatenate([means[i], means[i][:1]])
+            color = cmap_dict.get(c, f"C{i}")
+            ax.plot(angles_closed, vals, color=color, lw=linewidth, label=c)
+            ax.fill(angles_closed, vals, color=color, alpha=fill_alpha)
+
+        ax.set_xticks(angles)
+        ax.set_xticklabels(genes, fontsize=gene_label_fontsize, style="italic")
+        ax.tick_params(axis="y", labelsize=tick_fontsize)
+        ax.set_title(title or f"Gene signature radar — {field}",
+                     fontsize=title_fontsize, pad=18)
+        ax.legend(title=field, loc="upper right", bbox_to_anchor=(1.28, 1.08),
+                  frameon=False, fontsize=legend_fontsize,
+                  title_fontsize=legend_title_fontsize)
+        fig.tight_layout()
+    return fig
+
+
+def plot_embedding_3d(
+    ds: Dataset,
+    color: str | None = None,
+    gene: str | None = None,
+    embedding: str | None = None,
+    # layout
+    figsize: tuple = (7.0, 6.0),
+    dpi: int = 150,
+    # view
+    elev: float = 22,
+    azim: float = -60,
+    # scatter
+    point_size: float = 4.0,
+    alpha: float = 0.8,
+    cmap: str = "viridis",
+    # typography
+    title: str | None = None,
+    title_fontsize: float = 12,
+    label_fontsize: float = 9,
+    tick_fontsize: float = 7,
+    legend_fontsize: float = 7,
+    colorbar_fontsize: float = 8,
+    font_family: str | None = None,
+):
+    """3-D scatter of the first three dimensions of an embedding.
+
+    Parameters
+    ----------
+    color : str, optional
+        ``obs`` column (categorical) for per-group colouring.
+    gene : str, optional
+        Gene name; expression drives a continuous colour scale.
+    embedding : str, optional
+        Embedding key in ``obsm`` with **at least 3** dimensions
+        (e.g. a 3-component UMAP/PCA). Auto-selected if None.
+    elev, azim : float
+        3-D view elevation and azimuth angles in degrees.
+    point_size : float
+        Marker size.
+    alpha : float
+        Marker transparency.
+    cmap : str
+        Colormap for gene / continuous colouring.
+    title : str, optional
+        Figure title.
+    title_fontsize, label_fontsize, tick_fontsize, legend_fontsize,
+    colorbar_fontsize : float
+        Font sizes.
+    font_family : str, optional
+        Font family for this figure only.
+    """
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  (enables 3d projection)
+    key = _resolve_embedding(ds, embedding)
+    X = ds.adata.obsm[key]
+    from scipy import sparse as sp
+    X = X.toarray() if sp.issparse(X) else np.asarray(X)
+    if X.shape[1] < 3:
+        raise ValueError(
+            f"embedding {key!r} has {X.shape[1]} dims; plot_embedding_3d needs "
+            "at least 3 (e.g. compute a 3-component UMAP/PCA)")
+    xyz = X[:, :3]
+    lab = _emb_label(key)
+
+    with _font_ctx(font_family):
+        fig = plt.figure(figsize=figsize, dpi=dpi)
+        ax = fig.add_subplot(projection="3d")
+        ax.view_init(elev=elev, azim=azim)
+
+        if gene is not None:
+            expr = io.gene_vector(ds.adata, gene, "lognorm")
+            o = np.argsort(expr)
+            p = ax.scatter(xyz[o, 0], xyz[o, 1], xyz[o, 2], c=expr[o],
+                           s=point_size, cmap=cmap, linewidths=0, depthshade=True)
+            cb = fig.colorbar(p, ax=ax, fraction=0.03, pad=0.02)
+            cb.set_label("log-norm expression", fontsize=colorbar_fontsize)
+            cb.ax.tick_params(labelsize=colorbar_fontsize - 1)
+            ax.set_title(title or f"{gene} expression ({lab} 3D)",
+                         fontsize=title_fontsize, style="italic")
+        else:
+            field = color or ds.group_key
+            cats = list(ds.adata.obs[field].astype("category").cat.categories)
+            cmap_dict = io.category_colors(ds.adata, field) or {}
+            grp = ds.adata.obs[field].astype(str).values
+            for i, c in enumerate(cats):
+                m = grp == c
+                ax.scatter(xyz[m, 0], xyz[m, 1], xyz[m, 2], s=point_size,
+                           alpha=alpha, color=cmap_dict.get(c, None), label=c,
+                           linewidths=0, depthshade=True)
+            ax.set_title(title or f"{field} ({lab} 3D, {ds.n_obs:,} cells)",
+                         fontsize=title_fontsize)
+            ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), frameon=False,
+                      fontsize=legend_fontsize, markerscale=2)
+
+        ax.set_xlabel(f"{lab}1", fontsize=label_fontsize)
+        ax.set_ylabel(f"{lab}2", fontsize=label_fontsize)
+        ax.set_zlabel(f"{lab}3", fontsize=label_fontsize)
+        ax.tick_params(labelsize=tick_fontsize)
+        fig.tight_layout()
+    return fig
+
+
 # ------------------------------------------------------------------ tables
 def markers_table(
     ds: Dataset,
@@ -1667,9 +2324,13 @@ def export_tables(
 
 __all__ = [
     "Dataset", "load_dataset",
-    "set_style",
+    "set_style", "set_publication_style", "get_palette",
+    "OKABE_ITO", "PUBLICATION", "PALETTES",
     "plot_embedding", "plot_multigene", "plot_violin", "plot_dotplot",
     "plot_composition",
+    "plot_heatmap", "plot_matrixplot", "plot_stacked_violin",
+    "plot_tracksplot", "plot_correlation",
+    "plot_bar", "plot_trend", "plot_radar", "plot_embedding_3d",
     "markers_table", "composition_table", "metadata_table",
     "export_figures", "export_tables",
 ]
