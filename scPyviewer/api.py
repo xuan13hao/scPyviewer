@@ -147,65 +147,88 @@ def get_palette(name: str = "okabe-ito") -> list:
     return list(PALETTES[name])
 
 
+# Coherent style presets. "nature" follows Nature's artwork guidance (thin
+# 0.5–1 pt line art, compact sans-serif, restrained — no bold) for journal
+# figures; "bold" is a heavier look for talks/posters. Both are colour-blind
+# safe (Okabe-Ito cycle + perceptually-uniform viridis) and avoid red/green
+# and rainbow colormaps, per Nature + CVD-accessibility guidance.
+#   https://www.nature.com/nature/for-authors/initial-submission
+#   https://pmc.ncbi.nlm.nih.gov/articles/PMC9829408/  (CVD-safe single-cell plots)
+_STYLE_PRESETS = {
+    "nature": dict(base_fontsize=8, linewidth=0.8, bold_titles=False,
+                   line=1.0, tick_size=3.0),
+    "bold":   dict(base_fontsize=12, linewidth=2.0, bold_titles=True,
+                   line=2.0, tick_size=5.0),
+}
+
+
 def set_publication_style(
+    preset: str = "nature",
     palette: str = "okabe-ito",
     dpi: int = 300,
-    base_fontsize: float = 12,
+    base_fontsize: float | None = None,
     font_family: str | None = "Helvetica",
-    linewidth: float = 1.8,
-    bold_titles: bool = True,
-    bold_labels: bool = False,
+    linewidth: float | None = None,
+    bold_titles: bool | None = None,
     usetex: bool = False,
     editable_svg_text: bool = True,
 ) -> None:
-    """Apply a publication-quality global style to all subsequent plots.
+    """Apply a single, coherent publication style to all subsequent plots.
 
-    Sets matplotlib ``rcParams`` implementing common scientific-figure
-    conventions and installs a qualitative colour cycle. Because the existing
-    ``plot_*`` functions fall back to the active colour cycle when a dataset
-    has no stored ``*_colors`` palette, calling this once makes every
-    categorical plot adopt ``palette`` automatically — no per-call changes
-    needed.
+    One call sets matplotlib ``rcParams`` so **every** ``plot_*`` shares the same
+    look: a colour-blind-safe qualitative cycle (categorical plots adopt it via
+    their colour fallback), perceptually-uniform ``viridis`` for continuous data,
+    no top/right spines, white background, and editable SVG text. Two presets:
 
-    The conventions here (Helvetica stack, no top/right spines, 300 dpi,
-    frameless legends, editable SVG text) are standard practice and were
-    implemented independently; they are inspired by, but contain no code from,
-    https://github.com/ChenLiu-1996/figures4papers. scPyviewer stays MIT.
+    * ``"nature"`` *(default)* — Nature artwork style: thin 0.8 pt line art,
+      compact 8 pt sans-serif, un-bolded titles. Clean and journal-ready.
+    * ``"bold"`` — heavier look (2 pt axes, 12 pt, bold titles) for talks/posters.
+
+    These encode published guidance — Nature's figure requirements (Arial/
+    Helvetica, 0.5–1 pt lines, avoid red/green and rainbow colormaps, editable
+    vector text) and colour-vision-deficiency best practice (Okabe-Ito, viridis).
+    No third-party code is used; scPyviewer stays MIT.
 
     Parameters
     ----------
+    preset : {"nature", "bold"}
+        Named style bundle. Individual knobs below override the preset.
     palette : {"okabe-ito", "publication"}
         Qualitative colour cycle for categorical coloring.
     dpi : int
-        Default figure and save resolution (300 for print; use 600 for dense
-        panels).
-    base_fontsize : float
-        Base font size in points.
+        Default figure / save resolution (300 for print; 600 for dense panels).
+    base_fontsize, linewidth, bold_titles : optional
+        Override the preset's base font size, axis/tick line width, or title
+        weight. ``None`` uses the preset value.
     font_family : str, optional
-        Preferred font; prepended to the sans-serif stack so it degrades
-        gracefully to Arial/DejaVu Sans if unavailable. Pass ``None`` to keep
-        the current family.
-    linewidth : float
-        Axis spine / tick line width.
+        Preferred font, prepended to the sans-serif stack (degrades to
+        Arial/DejaVu Sans). ``None`` keeps the current family.
     usetex : bool
-        Render text with LaTeX (requires a working LaTeX install). Off by
-        default so the style works out of the box.
+        Render text with LaTeX (needs a LaTeX install). Off by default.
     editable_svg_text : bool
-        Keep text as selectable text (not paths) in SVG exports, so labels
-        remain editable in Illustrator/Inkscape.
+        Keep SVG text selectable (not outlined) so labels stay editable in
+        Illustrator/Inkscape.
 
     Examples
     --------
     >>> import scPyviewer as sv
-    >>> sv.set_publication_style()                 # Okabe-Ito, 300 dpi
-    >>> sv.set_publication_style(palette="publication", dpi=600)
+    >>> sv.set_publication_style()                      # Nature-clean (default)
+    >>> sv.set_publication_style("bold", dpi=600)       # talks / posters
+    >>> sv.set_publication_style(palette="publication") # alternate palette
     """
     from cycler import cycler
+
+    if preset not in _STYLE_PRESETS:
+        raise ValueError(
+            f"preset must be one of {sorted(_STYLE_PRESETS)}, got {preset!r}")
+    p = _STYLE_PRESETS[preset]
+    base_fontsize = p["base_fontsize"] if base_fontsize is None else base_fontsize
+    linewidth = p["linewidth"] if linewidth is None else linewidth
+    bold_titles = p["bold_titles"] if bold_titles is None else bold_titles
 
     colors = get_palette(palette)
     sans = list(mpl.rcParams.get("font.sans-serif", []))
     if font_family:
-        # move the preferred font to the front of the fallback stack
         sans = [font_family] + [f for f in sans if f != font_family]
 
     mpl.rcParams.update({
@@ -213,23 +236,26 @@ def set_publication_style(
         "font.sans-serif": sans,
         "font.size": base_fontsize,
         "axes.prop_cycle": cycler(color=colors),
+        "image.cmap": "viridis",            # perceptually uniform, CVD-safe
         "axes.titlesize": base_fontsize + 2,
         "axes.titleweight": "bold" if bold_titles else "normal",
         "axes.labelsize": base_fontsize,
-        "axes.labelweight": "bold" if bold_labels else "normal",
         "axes.spines.top": False,
         "axes.spines.right": False,
         "axes.linewidth": linewidth,
-        # crisp outward ticks matching the axis weight
+        "lines.linewidth": p["line"],
+        "patch.linewidth": linewidth,
         "xtick.direction": "out",
         "ytick.direction": "out",
         "xtick.major.width": linewidth,
         "ytick.major.width": linewidth,
-        "xtick.major.size": 4.0,
-        "ytick.major.size": 4.0,
+        "xtick.major.size": p["tick_size"],
+        "ytick.major.size": p["tick_size"],
+        "xtick.labelsize": base_fontsize - 1,
+        "ytick.labelsize": base_fontsize - 1,
         "legend.frameon": False,
         "legend.fontsize": base_fontsize - 1,
-        # solid white background so figures read on GitHub light/dark themes
+        "legend.title_fontsize": base_fontsize,
         "figure.facecolor": "white",
         "savefig.facecolor": "white",
         "figure.dpi": dpi,
@@ -2104,9 +2130,10 @@ def plot_embedding_3d(
         Colormap for gene / continuous colouring.
     title : str, optional
         Figure title.
-    title_fontsize, label_fontsize, tick_fontsize, legend_fontsize,
-    colorbar_fontsize : float
-        Font sizes.
+    title_fontsize : float
+        Font sizes for the title, axis labels, ticks, legend, and colorbar
+        (``label_fontsize``, ``tick_fontsize``, ``legend_fontsize``,
+        ``colorbar_fontsize``).
     font_family : str, optional
         Font family for this figure only.
     """

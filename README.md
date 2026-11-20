@@ -198,24 +198,22 @@ sv.set_style(font_family="Arial", base_fontsize=11, dpi=300)
 # applies to all subsequent plot_* calls in the session
 ```
 
-### Publication style (v0.5.0+)
+### Publication style (v0.6.0+)
 
-One call installs a publication-quality global style — Helvetica stack, no
-top/right spines, 300 dpi, frameless legends, editable SVG text — and a
-qualitative colour cycle that every categorical `plot_*` picks up automatically:
+One call applies a single, coherent style to **every** `plot_*` — a colour-blind-safe qualitative cycle, perceptually-uniform `viridis` for continuous data, no top/right spines, white background, and editable SVG text. Two presets:
 
 ```python
-sv.set_publication_style()                        # Okabe-Ito (colour-blind safe), 300 dpi
-sv.set_publication_style(palette="publication", dpi=600)  # in-house muted set, dense panels
+sv.set_publication_style()                 # "nature" (default): thin 0.8pt lines, 8pt, un-bolded
+sv.set_publication_style("bold", dpi=600)  # heavier look for talks / posters
+sv.set_publication_style(palette="publication")   # alternate palette
 
 sv.get_palette("okabe-ito")   # -> ['#E69F00', '#56B4E9', '#009E73', ...]
 ```
 
-Two built-in palettes: `"okabe-ito"` (the colour-universal Okabe & Ito set) and
-`"publication"` (a muted print-friendly in-house set). The style conventions are
-standard scientific-figure practice, implemented independently and inspired by
-[ChenLiu-1996/figures4papers](https://github.com/ChenLiu-1996/figures4papers)
-(no code is reused, so scPyviewer remains MIT-licensed).
+- **`"nature"`** (default) follows [Nature's artwork guidance](https://www.nature.com/nature/for-authors/initial-submission) — Arial/Helvetica, thin 0.5–1 pt line art, compact type, **no** red/green or rainbow colormaps, editable vector text.
+- **`"bold"`** keeps the heavier presentation look (2 pt axes, bold titles).
+
+Two palettes: `"okabe-ito"` (the colour-universal, CVD-safe Okabe & Ito set — [why it matters for single-cell figures](https://pmc.ncbi.nlm.nih.gov/articles/PMC9829408/)) and `"publication"` (a muted in-house set). Individual knobs (`base_fontsize`, `linewidth`, `bold_titles`, `dpi`) override the preset. Conventions were implemented independently — no third-party code — so scPyviewer stays MIT.
 
 ### API parameter reference (v0.4.0)
 
@@ -258,7 +256,7 @@ publication-quality figures.
 | Function | Key parameters |
 |---|---|
 | `set_style` | `font_family`, `base_fontsize`, `dpi`, `style` |
-| `set_publication_style` | `palette` (`"okabe-ito"`/`"publication"`), `dpi`, `base_fontsize`, `linewidth`, `bold_titles`, `usetex` |
+| `set_publication_style` | `preset` (`"nature"`/`"bold"`), `palette` (`"okabe-ito"`/`"publication"`), `dpi`, `base_fontsize`, `linewidth`, `bold_titles` |
 | `plot_embedding` | `color`, `gene`, `embedding`, `point_size`, `alpha`, `cmap`, `label_groups`, `show_legend` + all typography params |
 | `plot_multigene` | `genes`, `ncol`, `max_genes`, `point_size`, `cmap`, `alpha` + all typography params |
 | `plot_violin` | `gene`, `group`, `kind` (`"violin"`/`"box"`), `palette`, `show_points` + all typography params |
