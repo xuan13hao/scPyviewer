@@ -299,6 +299,19 @@ Run `./run.sh api-demo` for a worked end-to-end example → `results/api_demo/`.
 
 ---
 
+## Use from an AI agent (MCP)
+
+scPyviewer ships an **MCP server** so Claude Code / Claude Desktop (or any MCP client) can explore your data directly — discover datasets, search genes, pull marker/composition tables, and render publication-quality figures as images.
+
+```bash
+pip install 'scPyviewer[mcp]'
+claude mcp add scpyviewer -e SCPYVIEWER_DATA_DIR=/path/to/data -- scpyviewer-mcp
+```
+
+Tools: `list_datasets`, `dataset_info`, `search_genes`, `top_markers`, `composition`, and `plot_embedding` / `plot_dotplot` / `plot_violin` / `plot_heatmap` / `plot_bar` / `plot_composition`. See [docs: MCP server](https://xuan13hao.github.io/scPyviewer/mcp.html) and [SKILL.md](SKILL.md).
+
+---
+
 ## Large-dataset support (atlases larger than RAM)
 
 ### Recommended: subsample once, then explore instantly

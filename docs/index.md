@@ -88,5 +88,6 @@ Every figure below is one `plot_*` call under {func}`~scPyviewer.set_publication
 installation
 tutorial
 large_data
+mcp
 api
 ```

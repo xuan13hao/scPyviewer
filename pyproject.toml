@@ -44,11 +44,14 @@ docs = [
     "myst-nb>=1.0",
     "sphinx-design>=0.5",
 ]
+# MCP server — drive scPyviewer from an LLM agent (Claude Code / Desktop).
+mcp = ["mcp>=1.2"]
 all = ["streamlit>=1.30", "leidenalg>=0.10", "igraph>=0.11", "openpyxl>=3.1"]
 
 [project.scripts]
 scpyviewer = "scPyviewer._launch:main"
 scpyviewer-prepare = "scPyviewer.prepare:main"
+scpyviewer-mcp = "scPyviewer.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/xuan13hao/scPyviewer"
