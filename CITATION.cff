@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use scPyviewer in your research, please cite the article below."
+title: scPyviewer
+abstract: >-
+  A Python-native interactive viewer and publication-quality plotting API for
+  single-cell AnnData (.h5ad) data.
+type: software
+authors:
+  - family-names: Xuan
+    given-names: Hao
+    email: xuanhao@iu.edu
+  - family-names: Huang
+    given-names: Yu
+  - family-names: Bian
+    given-names: Jiang
+  - family-names: Liu
+    given-names: Xiangtao
+repository-code: "https://github.com/xuan13hao/scPyviewer"
+url: "https://xuan13hao.github.io/scPyviewer/"
+license: MIT
+preferred-citation:
+  type: article
+  title: "scPyviewer: a Python-native interactive viewer from AnnData single-cell data"
+  authors:
+    - family-names: Xuan
+      given-names: Hao
+    - family-names: Huang
+      given-names: Yu
+    - family-names: Bian
+      given-names: Jiang
+    - family-names: Liu
+      given-names: Xiangtao
+  year: 2026
+  journal: bioRxiv
+  publisher:
+    name: Cold Spring Harbor Laboratory
+  doi: "10.64898/2026.08.26.747418"
+  url: "https://www.biorxiv.org/content/early/2026/08/31/2026.08.26.747418"

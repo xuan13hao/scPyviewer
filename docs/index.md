@@ -52,6 +52,12 @@ Full signatures and parameters, generated from the docstrings.
 :link-type: doc
 Explore million-cell atlases smoothly in low memory.
 :::
+
+:::{grid-item-card} 📄 Citation
+:link: citation
+:link-type: doc
+How to cite scPyviewer (bioRxiv + BibTeX + `CITATION.cff`).
+:::
 ::::
 
 ## Publication-quality figures
@@ -107,4 +113,5 @@ styling
 large_data
 mcp
 api
+citation
 ```
