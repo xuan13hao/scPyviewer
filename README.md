@@ -200,18 +200,18 @@ sv.set_style(font_family="Arial", base_fontsize=11, dpi=300)
 
 ### Publication style (v0.6.0+)
 
-One call applies a single, coherent style to **every** `plot_*` — a colour-blind-safe qualitative cycle, perceptually-uniform `viridis` for continuous data, no top/right spines, white background, and editable SVG text. Two presets:
+scPyviewer applies a **bold, figures4papers-style** look to **every** `plot_*` automatically on import — thick 2 pt axes, bold titles, black-edged bars, a colour-blind-safe qualitative cycle, perceptually-uniform `viridis` for continuous data, and editable SVG text. Switch styles with one call:
 
 ```python
-sv.set_publication_style()                 # "nature" (default): thin 0.8pt lines, 8pt, un-bolded
-sv.set_publication_style("bold", dpi=600)  # heavier look for talks / posters
+sv.set_publication_style()                 # "bold" (default): figures4papers look — also applied on import
+sv.set_publication_style("nature")         # Nature artwork style: thin 0.8pt lines, compact, journal-clean
 sv.set_publication_style(palette="publication")   # alternate palette
 
 sv.get_palette("okabe-ito")   # -> ['#E69F00', '#56B4E9', '#009E73', ...]
 ```
 
-- **`"nature"`** (default) follows [Nature's artwork guidance](https://www.nature.com/nature/for-authors/initial-submission) — Arial/Helvetica, thin 0.5–1 pt line art, compact type, **no** red/green or rainbow colormaps, editable vector text.
-- **`"bold"`** keeps the heavier presentation look (2 pt axes, bold titles).
+- **`"bold"`** (default) — high-impact figures4papers look (2 pt axes, 12 pt, bold titles, black bar edges) for talks, posters, and punchy paper panels.
+- **`"nature"`** follows [Nature's artwork guidance](https://www.nature.com/nature/for-authors/initial-submission) — Arial/Helvetica, thin 0.5–1 pt line art, compact type, **no** red/green or rainbow colormaps, editable vector text.
 
 Two palettes: `"okabe-ito"` (the colour-universal, CVD-safe Okabe & Ito set — [why it matters for single-cell figures](https://pmc.ncbi.nlm.nih.gov/articles/PMC9829408/)) and `"publication"` (a muted in-house set). Individual knobs (`base_fontsize`, `linewidth`, `bold_titles`, `dpi`) override the preset. Conventions were implemented independently — no third-party code — so scPyviewer stays MIT.
 

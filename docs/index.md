@@ -50,7 +50,7 @@ Explore million-cell atlases smoothly in low memory.
 
 ## Publication-quality figures
 
-Every figure below is one `plot_*` call under {func}`~scPyviewer.set_publication_style` (Nature-style defaults, colour-blind-safe Okabe-Ito palette). See the [tutorial](tutorial) for the code.
+Every figure below is one `plot_*` call under {func}`~scPyviewer.set_publication_style` (bold figures4papers-style default, colour-blind-safe Okabe-Ito palette; call `set_publication_style("nature")` for the compact journal look). See the [tutorial](tutorial) for the code.
 
 ::::{grid} 3
 :gutter: 2

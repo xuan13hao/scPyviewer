@@ -163,7 +163,7 @@ _STYLE_PRESETS = {
 
 
 def set_publication_style(
-    preset: str = "nature",
+    preset: str = "bold",
     palette: str = "okabe-ito",
     dpi: int = 300,
     base_fontsize: float | None = None,
@@ -181,9 +181,11 @@ def set_publication_style(
     their colour fallback), perceptually-uniform ``viridis`` for continuous data,
     no top/right spines, white background, and editable SVG text. Two presets:
 
-    * ``"nature"`` *(default)* — Nature artwork style: thin 0.8 pt line art,
-      compact 8 pt sans-serif, un-bolded titles. Clean and journal-ready.
-    * ``"bold"`` — heavier look (2 pt axes, 12 pt, bold titles) for talks/posters.
+    * ``"bold"`` *(default)* — a bold, figures4papers-style look: 2 pt axes,
+      12 pt type, bold titles, black-edged bars. High-impact for talks, posters,
+      and punchy paper panels. **Applied automatically on import.**
+    * ``"nature"`` — Nature artwork style: thin 0.8 pt line art, compact 8 pt
+      sans-serif, un-bolded titles. Clean and journal-ready.
 
     These encode published guidance — Nature's figure requirements (Arial/
     Helvetica, 0.5–1 pt lines, avoid red/green and rainbow colormaps, editable
@@ -272,6 +274,12 @@ def set_publication_style(
         "svg.fonttype": "none" if editable_svg_text else "path",
         "text.usetex": usetex,
     })
+
+
+# Apply the default (figures4papers "bold") style on import so every figure is
+# styled out of the box. Call set_publication_style("nature") for the compact
+# journal look, or set_style()/mpl.rcParams to customise further.
+set_publication_style()
 
 
 # ------------------------------------------------------------------ handle

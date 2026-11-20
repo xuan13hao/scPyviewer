@@ -50,7 +50,7 @@ see [Large data](large_data)).
 | `plot_bar` | PNG | mean ± SEM per group |
 | `plot_composition` | PNG | stacked composition bars |
 
-All figures use the Nature-style, colour-blind-safe
+All figures use the bold figures4papers-style, colour-blind-safe
 {func}`~scPyviewer.set_publication_style` defaults.
 
 ## Typical flow
