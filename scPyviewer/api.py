@@ -170,6 +170,7 @@ def set_publication_style(
     font_family: str | None = "Helvetica",
     linewidth: float | None = None,
     bold_titles: bool | None = None,
+    bold_labels: bool = False,
     usetex: bool = False,
     editable_svg_text: bool = True,
 ) -> None:
@@ -200,6 +201,8 @@ def set_publication_style(
     base_fontsize, linewidth, bold_titles : optional
         Override the preset's base font size, axis/tick line width, or title
         weight. ``None`` uses the preset value.
+    bold_labels : bool
+        Bold the axis labels (kept for backward compatibility).
     font_family : str, optional
         Preferred font, prepended to the sans-serif stack (degrades to
         Arial/DejaVu Sans). ``None`` keeps the current family.
@@ -218,6 +221,10 @@ def set_publication_style(
     """
     from cycler import cycler
 
+    # Backward compatibility: earlier versions took ``palette`` as the first
+    # positional argument. If a palette name was passed there, reinterpret it.
+    if preset in PALETTES:
+        palette, preset = preset, "nature"
     if preset not in _STYLE_PRESETS:
         raise ValueError(
             f"preset must be one of {sorted(_STYLE_PRESETS)}, got {preset!r}")
@@ -240,6 +247,7 @@ def set_publication_style(
         "axes.titlesize": base_fontsize + 2,
         "axes.titleweight": "bold" if bold_titles else "normal",
         "axes.labelsize": base_fontsize,
+        "axes.labelweight": "bold" if bold_labels else "normal",
         "axes.spines.top": False,
         "axes.spines.right": False,
         "axes.linewidth": linewidth,
