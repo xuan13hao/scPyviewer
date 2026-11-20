@@ -1,0 +1,8 @@
+/* scPyviewer docs — light tweaks on top of pydata-sphinx-theme */
+.bd-content img { border-radius: 6px; }
+
+.sd-card { border: 1px solid var(--pst-color-border); }
+.sd-card-title { font-weight: 600; }
+
+/* tighten the landing-page gallery grid */
+.sd-container-fluid .sd-row img { width: 100%; height: auto; }

@@ -37,6 +37,13 @@ prepare = ["leidenalg>=0.10", "igraph>=0.11"]
 excel = ["openpyxl>=3.1"]
 # Testing.
 dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+# Documentation site (Sphinx + pydata-sphinx-theme, scverse-style).
+docs = [
+    "sphinx>=7.0",
+    "pydata-sphinx-theme>=0.15",
+    "myst-nb>=1.0",
+    "sphinx-design>=0.5",
+]
 all = ["streamlit>=1.30", "leidenalg>=0.10", "igraph>=0.11", "openpyxl>=3.1"]
 
 [project.scripts]
@@ -45,6 +52,7 @@ scpyviewer-prepare = "scPyviewer.prepare:main"
 
 [project.urls]
 Homepage = "https://github.com/xuan13hao/scPyviewer"
+Documentation = "https://xuan13hao.github.io/scPyviewer/"
 "Bug Tracker" = "https://github.com/xuan13hao/scPyviewer/issues"
 "Source Code" = "https://github.com/xuan13hao/scPyviewer"
 

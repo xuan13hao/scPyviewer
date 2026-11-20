@@ -27,3 +27,9 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# docs build
+docs/_build/
+docs/generated/
+docs/jupyter_execute/
+docs/tutorial.ipynb
