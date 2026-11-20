@@ -35,6 +35,12 @@ Install, launch the viewer, and load your first dataset.
 Every `plot_*` and table function with runnable examples.
 :::
 
+:::{grid-item-card} 🎨 Styles & palettes
+:link: styling
+:link-type: doc
+figures4papers / nature presets and the journal colour palettes (NPG, AAAS, NEJM, Lancet, JAMA).
+:::
+
 :::{grid-item-card} 🧬 API reference
 :link: api
 :link-type: doc
@@ -97,6 +103,7 @@ colour-blind-safe `"okabe-ito"` default.
 
 installation
 tutorial
+styling
 large_data
 mcp
 api
