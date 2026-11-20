@@ -41,6 +41,7 @@ see [Large data](large_data)).
 | `list_datasets` | list | prepared `.h5ad` files in the data dir |
 | `dataset_info` | dict | cells/genes, `group_key`, embeddings, metadata fields |
 | `search_genes` | list | gene-name search |
+| `set_style` | — | switch preset (bold/nature) + palette (npg/aaas/nejm/lancet/jama/…) |
 | `top_markers` | table | top marker/DE genes per group |
 | `composition` | table | group × split composition (fractions) |
 | `plot_embedding` | PNG | UMAP/t-SNE/PCA by metadata or gene |

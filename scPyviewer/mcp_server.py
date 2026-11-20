@@ -91,6 +91,18 @@ def search_genes(path: str, query: str, limit: int = 30) -> list[str]:
     return _load(path).genes(query, limit=limit)
 
 
+@mcp.tool()
+def set_style(preset: str = "bold", palette: str = "okabe-ito") -> str:
+    """Set the global figure style for subsequent plot_* tools.
+
+    preset: "bold" (figures4papers, default) or "nature" (compact journal).
+    palette: "okabe-ito" (CVD-safe) or a journal scheme — "npg" (Nature),
+    "aaas" (Science), "nejm", "lancet", "jama", "publication".
+    """
+    _api.set_publication_style(preset, palette=palette)
+    return f"style set: preset={preset!r}, palette={palette!r}"
+
+
 # ------------------------------------------------------------------ tables
 @mcp.tool()
 def top_markers(path: str, group: str | None = None, top_n: int = 10) -> str:

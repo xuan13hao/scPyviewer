@@ -81,6 +81,16 @@ Every figure below is one `plot_*` call under {func}`~scPyviewer.set_publication
 :::
 ::::
 
+### Palettes
+
+Match any target venue with one argument — `set_publication_style(palette="npg")`
+(Nature), `"aaas"` (Science), `"nejm"`, `"lancet"`, `"jama"`, or the
+colour-blind-safe `"okabe-ito"` default.
+
+```{image} https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/palettes.png
+:width: 80%
+```
+
 ```{toctree}
 :hidden:
 :maxdepth: 2

@@ -124,7 +124,33 @@ PUBLICATION = [
     "#2B6CB0", "#C53030", "#2F855A", "#6B46C1",
     "#B7791F", "#319795", "#B83280", "#4A5568",
 ]
-PALETTES = {"okabe-ito": OKABE_ITO, "publication": PUBLICATION}
+# Journal palettes matching the colour schemes of major venues — the de-facto
+# standard for bioinformatics papers (as popularised by the ggsci R package).
+# These are plain colour-value lists (facts, not copyrightable code).
+NPG = [  # Nature Publishing Group
+    "#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F",
+    "#8491B4", "#91D1C2", "#DC0000", "#7E6148", "#B09C85",
+]
+AAAS = [  # Science / AAAS
+    "#3B4992", "#EE0000", "#008B45", "#631879", "#008280",
+    "#BB0021", "#5F559B", "#A20056", "#808180", "#1B1919",
+]
+NEJM = [  # New England Journal of Medicine
+    "#BC3C29", "#0072B5", "#E18727", "#20854E",
+    "#7876B1", "#6F99AD", "#FFDC91", "#EE4C97",
+]
+LANCET = [  # The Lancet
+    "#00468B", "#ED0000", "#42B540", "#0099B4", "#925E9F",
+    "#FDAF91", "#AD002A", "#ADB6B6", "#1B1919",
+]
+JAMA = [  # Journal of the American Medical Association
+    "#374E55", "#DF8F44", "#00A1D5", "#B24745",
+    "#79AF97", "#6A6599", "#80796B",
+]
+PALETTES = {
+    "okabe-ito": OKABE_ITO, "publication": PUBLICATION,
+    "npg": NPG, "aaas": AAAS, "nejm": NEJM, "lancet": LANCET, "jama": JAMA,
+}
 
 
 def get_palette(name: str = "okabe-ito") -> list:
@@ -132,14 +158,24 @@ def get_palette(name: str = "okabe-ito") -> list:
 
     Parameters
     ----------
-    name : {"okabe-ito", "publication"}
-        ``"okabe-ito"`` is the colour-blind-safe Okabe & Ito palette;
-        ``"publication"`` is a muted print-friendly in-house set.
+    name : str
+        One of:
+
+        - ``"okabe-ito"`` — colour-blind-safe Okabe & Ito palette (default)
+        - ``"publication"`` — muted print-friendly in-house set
+        - ``"npg"`` — Nature Publishing Group
+        - ``"aaas"`` — Science / AAAS
+        - ``"nejm"`` — New England Journal of Medicine
+        - ``"lancet"`` — The Lancet
+        - ``"jama"`` — JAMA
+
+        The journal palettes match the colour schemes popularised by the ggsci
+        R package; ``"okabe-ito"`` is the most colour-vision-deficiency safe.
 
     Examples
     --------
-    >>> sv.get_palette("okabe-ito")[:3]
-    ['#E69F00', '#56B4E9', '#009E73']
+    >>> sv.get_palette("npg")[:3]
+    ['#E64B35', '#4DBBD5', '#00A087']
     """
     if name not in PALETTES:
         raise ValueError(
@@ -196,8 +232,11 @@ def set_publication_style(
     ----------
     preset : {"nature", "bold"}
         Named style bundle. Individual knobs below override the preset.
-    palette : {"okabe-ito", "publication"}
-        Qualitative colour cycle for categorical coloring.
+    palette : str
+        Qualitative colour cycle for categorical coloring — ``"okabe-ito"``
+        (CVD-safe, default), ``"publication"``, or a journal palette matching a
+        venue's scheme: ``"npg"`` (Nature), ``"aaas"`` (Science), ``"nejm"``,
+        ``"lancet"``, ``"jama"``.
     dpi : int
         Default figure / save resolution (300 for print; 600 for dense panels).
     base_fontsize, linewidth, bold_titles : optional
@@ -2396,7 +2435,7 @@ def export_tables(
 __all__ = [
     "Dataset", "load_dataset",
     "set_style", "set_publication_style", "get_palette",
-    "OKABE_ITO", "PUBLICATION", "PALETTES",
+    "OKABE_ITO", "PUBLICATION", "NPG", "AAAS", "NEJM", "LANCET", "JAMA", "PALETTES",
     "plot_embedding", "plot_multigene", "plot_violin", "plot_dotplot",
     "plot_composition",
     "plot_heatmap", "plot_matrixplot", "plot_stacked_violin",

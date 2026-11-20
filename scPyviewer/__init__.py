@@ -16,7 +16,7 @@ Quick start (programmatic)::
 Launch the interactive viewer with the ``scpyviewer`` console script, or
 ``python -m streamlit run scPyviewer/app.py``.
 """
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 from .api import (  # noqa: E402,F401
     Dataset,
@@ -26,6 +26,11 @@ from .api import (  # noqa: E402,F401
     get_palette,
     OKABE_ITO,
     PUBLICATION,
+    NPG,
+    AAAS,
+    NEJM,
+    LANCET,
+    JAMA,
     PALETTES,
     plot_embedding,
     plot_multigene,
@@ -52,7 +57,7 @@ __all__ = [
     "__version__",
     "Dataset", "load_dataset",
     "set_style", "set_publication_style", "get_palette",
-    "OKABE_ITO", "PUBLICATION", "PALETTES",
+    "OKABE_ITO", "PUBLICATION", "NPG", "AAAS", "NEJM", "LANCET", "JAMA", "PALETTES",
     "plot_embedding", "plot_multigene", "plot_violin", "plot_dotplot",
     "plot_composition",
     "plot_heatmap", "plot_matrixplot", "plot_stacked_violin",

@@ -213,7 +213,17 @@ sv.get_palette("okabe-ito")   # -> ['#E69F00', '#56B4E9', '#009E73', ...]
 - **`"bold"`** (default) — high-impact figures4papers look (2 pt axes, 12 pt, bold titles, black bar edges) for talks, posters, and punchy paper panels.
 - **`"nature"`** follows [Nature's artwork guidance](https://www.nature.com/nature/for-authors/initial-submission) — Arial/Helvetica, thin 0.5–1 pt line art, compact type, **no** red/green or rainbow colormaps, editable vector text.
 
-Two palettes: `"okabe-ito"` (the colour-universal, CVD-safe Okabe & Ito set — [why it matters for single-cell figures](https://pmc.ncbi.nlm.nih.gov/articles/PMC9829408/)) and `"publication"` (a muted in-house set). Individual knobs (`base_fontsize`, `linewidth`, `bold_titles`, `dpi`) override the preset. Conventions were implemented independently — no third-party code — so scPyviewer stays MIT.
+**Palettes** — match a target venue with one argument:
+
+```python
+sv.set_publication_style(palette="npg")      # Nature    | also: aaas (Science),
+sv.set_publication_style(palette="lancet")   # Lancet    |       nejm, jama,
+sv.set_publication_style(palette="okabe-ito")# CVD-safe   |       publication
+```
+
+<img src="https://raw.githubusercontent.com/xuan13hao/scPyviewer/main/docs/images/palettes.png" width="70%">
+
+`"okabe-ito"` (default) is the [colour-vision-deficiency-safe](https://pmc.ncbi.nlm.nih.gov/articles/PMC9829408/) Okabe & Ito set; `npg` / `aaas` / `nejm` / `lancet` / `jama` match the colour schemes of those journals (as popularised by the [ggsci](https://nanx.me/ggsci/) R package). Continuous data uses perceptually-uniform `viridis` (switch to `cividis` for maximal CVD-safety). Individual knobs (`base_fontsize`, `linewidth`, `bold_titles`, `dpi`) override the preset. Conventions were implemented independently — no third-party code — so scPyviewer stays MIT.
 
 ### API parameter reference (v0.4.0)
 
